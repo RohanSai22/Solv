@@ -18,16 +18,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function DcaWizard({ className }: { className?: string }) {
   const { networkMode } = useContext(AppContext);
   const { connected } = useWallet();
-  const isActionDisabled = networkMode === 'mainnet-beta' && !connected;
+  const { toast } = useToast();
+  const [isScheduling, setIsScheduling] = useState(false);
+  const isActionDisabled = (networkMode === 'mainnet-beta' && !connected) || isScheduling;
+
+  const handleScheduleDca = () => {
+    if (networkMode === 'devnet') {
+      setIsScheduling(true);
+      setTimeout(() => {
+        setIsScheduling(false);
+        toast({
+          title: "DCA Scheduled",
+          description: "Your new dollar-cost averaging schedule has been successfully created.",
+        });
+      }, 1500);
+    } else {
+      // Mainnet logic would go here
+      toast({
+        title: "Connect Wallet",
+        description: "Please connect your wallet to schedule a DCA on Mainnet.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <motion.div
@@ -37,7 +60,7 @@ export function DcaWizard({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-md">
+      <Card className="flex flex-col w-full max-w-lg">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <CalendarClock className="w-6 h-6 text-accent" />
@@ -93,8 +116,9 @@ export function DcaWizard({ className }: { className?: string }) {
           </div>
         </CardContent>
         <CardFooter>
-          <Button className="w-full" disabled={isActionDisabled}>
-            Schedule DCA
+          <Button className="w-full" disabled={isActionDisabled} onClick={handleScheduleDca}>
+            {isScheduling && <Loader2 className="animate-spin" />}
+            {isScheduling ? "Scheduling..." : "Schedule DCA"}
           </Button>
         </CardFooter>
       </Card>

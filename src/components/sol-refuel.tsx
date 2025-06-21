@@ -16,17 +16,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Droplets } from "lucide-react";
+import { Droplets, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Label } from "./ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export function SolRefuel({ className }: { className?: string }) {
   const { networkMode } = useContext(AppContext);
   const { connected } = useWallet();
-  const isActionDisabled = networkMode === 'mainnet-beta' && !connected;
+  const { toast } = useToast();
+  const [isRefueling, setIsRefueling] = useState(false);
+  
+  const isActionDisabled = (networkMode === 'mainnet-beta' && !connected) || isRefueling;
+
+  const handleRefuel = () => {
+    if (networkMode === 'devnet') {
+      setIsRefueling(true);
+      setTimeout(() => {
+        setIsRefueling(false);
+        toast({
+          title: "Refuel Successful!",
+          description: "Your SOL balance has been topped up.",
+        });
+      }, 1500);
+    } else {
+      // Mainnet logic would go here
+      toast({
+        title: "Connect Wallet",
+        description: "Please connect your wallet to refuel on Mainnet.",
+        variant: "destructive",
+      });
+    }
+  };
+
 
   return (
     <motion.div
@@ -36,7 +61,7 @@ export function SolRefuel({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-md">
+      <Card className="flex flex-col w-full max-w-lg">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <Droplets className="w-6 h-6 text-primary" />
@@ -80,8 +105,9 @@ export function SolRefuel({ className }: { className?: string }) {
           </div>
         </CardContent>
         <CardFooter>
-          <Button className="w-full" disabled={isActionDisabled}>
-            Refuel Now
+          <Button className="w-full" disabled={isActionDisabled} onClick={handleRefuel}>
+            {isRefueling && <Loader2 className="animate-spin" />}
+            {isRefueling ? 'Refueling...' : 'Refuel Now'}
           </Button>
         </CardFooter>
       </Card>
