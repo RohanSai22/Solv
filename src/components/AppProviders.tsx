@@ -1,35 +1,42 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
-import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { clusterApiUrl } from '@solana/web3.js';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
-import { AppContextProvider } from '@/contexts/AppContext';
+import { AppContext, AppContextProvider } from '@/contexts/AppContext';
+import { getRpcUrl } from '@/config';
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
-    // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
-    const network = WalletAdapterNetwork.Devnet;
+function WalletAppProviders({ children }: { children: React.ReactNode }) {
+    const { networkMode } = useContext(AppContext);
 
-    const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+    const endpoint = useMemo(() => getRpcUrl(networkMode), [networkMode]);
 
     const wallets = useMemo(
         () => [
             new PhantomWalletAdapter(),
         ],
-        [network]
+        // Wallets are re-initialized when the network changes to clear any stale connections
+        [networkMode]
     );
 
     return (
         <ConnectionProvider endpoint={endpoint}>
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
-                    <AppContextProvider>
-                        {children}
-                    </AppContextProvider>
+                    {children}
                 </WalletModalProvider>
             </WalletProvider>
         </ConnectionProvider>
     );
+}
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+    return (
+        <AppContextProvider>
+            <WalletAppProviders>
+                {children}
+            </WalletAppProviders>
+        </AppContextProvider>
+    )
 }

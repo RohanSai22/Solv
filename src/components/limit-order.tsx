@@ -20,13 +20,14 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ListOrdered, Loader2 } from "lucide-react";
+import { ListOrdered, Loader2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useContext, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
+import { getJupiterApiUrl } from "@/lib/jupiter-utils";
 
 type Order = {
   id: string;
@@ -51,11 +52,27 @@ export function LimitOrder({ className }: { className?: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isActionDisabled = (networkMode === 'mainnet-beta' && !connected) || isLoading;
+  const isMainnet = networkMode === 'mainnet-beta';
+  const isActionDisabled = (isMainnet && !connected) || isLoading;
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (networkMode === 'devnet') {
+    if (isMainnet) {
+       if (!connected) {
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to create an order on Mainnet.",
+          variant: "destructive",
+        });
+        return;
+      }
+      console.log("Preparing to create order on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
+      toast({
+        title: "Mainnet Action",
+        description: "Limit orders on Mainnet are not yet implemented.",
+      });
+
+    } else {
       setIsLoading(true);
       setTimeout(() => {
         const newOrder: Order = {
@@ -69,32 +86,34 @@ export function LimitOrder({ className }: { className?: string }) {
         setOrders(prev => [newOrder, ...prev]);
         setIsLoading(false);
         toast({
-          title: "Order Created",
+          title: "Order Created (Testnet)",
           description: "Your new limit order has been placed.",
         });
       }, 1500);
-    } else {
-      toast({
-        title: "Connect Wallet",
-        description: "Please connect your wallet to create an order on Mainnet.",
-        variant: "destructive",
-      });
     }
   };
 
   const handleCancelOrder = (orderId: string) => {
-    if (networkMode === 'devnet') {
-      setOrders(prev => prev.filter(order => order.id !== orderId));
+    if (isMainnet) {
+      if (!connected) {
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to cancel an order on Mainnet.",
+          variant: "destructive",
+        });
+        return;
+      }
+      console.log("Preparing to cancel order on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
       toast({
-        title: "Order Cancelled",
-        description: "Your limit order has been successfully cancelled.",
-        variant: "destructive"
+        title: "Mainnet Action",
+        description: "Cancelling orders on Mainnet is not yet implemented.",
       });
     } else {
-       toast({
-        title: "Connect Wallet",
-        description: "Please connect your wallet to cancel an order on Mainnet.",
-        variant: "destructive",
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+      toast({
+        title: "Order Cancelled (Testnet)",
+        description: "Your limit order has been successfully cancelled.",
+        variant: "destructive"
       });
     }
   };
@@ -108,7 +127,7 @@ export function LimitOrder({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className={cn("flex flex-col w-full max-w-3xl", className)}>
+      <Card className={cn("flex flex-col w-full max-w-4xl", className)}>
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <ListOrdered className="w-6 h-6 text-accent" />
@@ -119,6 +138,10 @@ export function LimitOrder({ className }: { className?: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md mb-4">
+            <Info className="w-4 h-4" />
+            <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
+          </div>
           <Tabs defaultValue="create">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="create">Create Order</TabsTrigger>
@@ -178,7 +201,7 @@ export function LimitOrder({ className }: { className?: string }) {
                       <TableCell>{order.amount}</TableCell>
                       <TableCell>{order.filled}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="destructive" size="sm" onClick={() => handleCancelOrder(order.id)} disabled={order.filled === '100%' || (networkMode === 'mainnet-beta' && !connected)}>
+                        <Button variant="destructive" size="sm" onClick={() => handleCancelOrder(order.id)} disabled={order.filled === '100%' || (isMainnet && !connected)}>
                           Cancel
                         </Button>
                       </TableCell>

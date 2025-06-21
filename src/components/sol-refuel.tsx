@@ -16,13 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Droplets, Loader2 } from "lucide-react";
+import { Droplets, Loader2, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import { useContext, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Label } from "./ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { getJupiterApiUrl } from "@/lib/jupiter-utils";
 
 export function SolRefuel({ className }: { className?: string }) {
   const { networkMode } = useContext(AppContext);
@@ -30,25 +31,35 @@ export function SolRefuel({ className }: { className?: string }) {
   const { toast } = useToast();
   const [isRefueling, setIsRefueling] = useState(false);
   
-  const isActionDisabled = (networkMode === 'mainnet-beta' && !connected) || isRefueling;
+  const isMainnet = networkMode === 'mainnet-beta';
+  const isActionDisabled = (isMainnet && !connected) || isRefueling;
 
   const handleRefuel = () => {
-    if (networkMode === 'devnet') {
+    if (isMainnet) {
+      if (!connected) {
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to refuel on Mainnet.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Mainnet logic would go here
+      console.log("Preparing to refuel on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
+       toast({
+          title: "Mainnet Action",
+          description: "Refueling on Mainnet is not yet implemented.",
+      });
+    } else {
+      // Devnet simulation
       setIsRefueling(true);
       setTimeout(() => {
         setIsRefueling(false);
         toast({
-          title: "Refuel Successful!",
+          title: "Refuel Successful! (Testnet)",
           description: "Your SOL balance has been topped up.",
         });
       }, 1500);
-    } else {
-      // Mainnet logic would go here
-      toast({
-        title: "Connect Wallet",
-        description: "Please connect your wallet to refuel on Mainnet.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -61,7 +72,7 @@ export function SolRefuel({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-xl">
+      <Card className="flex flex-col w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <Droplets className="w-6 h-6 text-primary" />
@@ -72,6 +83,10 @@ export function SolRefuel({ className }: { className?: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md">
+            <Info className="w-4 h-4" />
+            <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
+          </div>
           <div className="p-4 rounded-lg bg-secondary/50 text-center">
               <p className="text-sm text-muted-foreground">Your SOL Balance</p>
               <p className="text-2xl font-bold font-mono">

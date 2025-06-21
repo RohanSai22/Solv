@@ -17,13 +17,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Info } from "lucide-react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useContext, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
+import { getJupiterApiUrl } from "@/lib/jupiter-utils";
 
 const initialDustTokens = [
   {
@@ -55,27 +56,37 @@ export function DustSweeper({ className }: { className?: string }) {
   const [dustTokens, setDustTokens] = useState(initialDustTokens);
   const [isSweeping, setIsSweeping] = useState(false);
 
-  const isActionDisabled = (networkMode === 'mainnet-beta' && !connected) || isSweeping || dustTokens.length === 0;
+  const isMainnet = networkMode === 'mainnet-beta';
+  const isActionDisabled = (isMainnet && !connected) || isSweeping || dustTokens.length === 0;
 
   const handleSweep = () => {
-    if (networkMode === 'devnet') {
+    if (isMainnet) {
+      if (!connected) {
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to sweep dust on Mainnet.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Mainnet logic would go here
+      console.log("Preparing to sweep on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
+      toast({
+          title: "Mainnet Action",
+          description: "Sweeping on Mainnet is not yet implemented.",
+      });
+    } else {
+      // Devnet simulation
       setIsSweeping(true);
       setTimeout(() => {
         const sweptCount = dustTokens.length;
         setDustTokens([]);
         setIsSweeping(false);
         toast({
-          title: "Dust Swept!",
+          title: "Dust Swept! (Testnet)",
           description: `You successfully converted ${sweptCount} tokens and earned 0.05 SOL.`,
         });
       }, 2000);
-    } else {
-      // Mainnet logic would go here
-      toast({
-        title: "Connect Wallet",
-        description: "Please connect your wallet to sweep dust on Mainnet.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -87,7 +98,7 @@ export function DustSweeper({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-xl">
+      <Card className="flex flex-col w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-accent" />
@@ -98,12 +109,16 @@ export function DustSweeper({ className }: { className?: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md">
+            <Info className="w-4 h-4" />
+            <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
+          </div>
           {dustTokens.length > 0 ? (
             <>
               <p className="text-sm text-muted-foreground">
                 Found {dustTokens.length} dust tokens in your wallet.
               </p>
-              <ScrollArea className="h-40 w-full pr-4">
+              <ScrollArea className="h-48 w-full pr-4">
                 <div className="space-y-3">
                   {dustTokens.map((token) => (
                     <div key={token.name} className="flex items-center justify-between">
@@ -127,7 +142,7 @@ export function DustSweeper({ className }: { className?: string }) {
               </ScrollArea>
             </>
           ) : (
-            <div className="flex items-center justify-center h-40 text-muted-foreground">
+            <div className="flex items-center justify-center h-48 text-muted-foreground">
               <p>No dust tokens found!</p>
             </div>
           )}

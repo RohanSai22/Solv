@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Flame, ShieldAlert, Loader2 } from "lucide-react";
+import { Flame, ShieldAlert, Loader2, Info } from "lucide-react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useContext, useState, useMemo } from "react";
@@ -19,6 +19,7 @@ import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "./ui/label";
+import { getJupiterApiUrl } from "@/lib/jupiter-utils";
 
 const initialSpamTokens = [
   { name: "FREESOL.io", icon: "https://placehold.co/32x32.png" },
@@ -37,7 +38,8 @@ export function SpamShield({ className }: { className?: string }) {
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
   const [isBurning, setIsBurning] = useState(false);
 
-  const isActionDisabled = (networkMode === 'mainnet-beta' && !connected) || isBurning || selectedTokens.size === 0;
+  const isMainnet = networkMode === 'mainnet-beta';
+  const isActionDisabled = (isMainnet && !connected) || isBurning || selectedTokens.size === 0;
 
   const handleToggleSelect = (tokenName: string) => {
     setSelectedTokens(prev => {
@@ -60,7 +62,23 @@ export function SpamShield({ className }: { className?: string }) {
   };
 
   const handleBurn = () => {
-    if (networkMode === 'devnet') {
+    if (isMainnet) {
+      if (!connected) {
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to burn spam on Mainnet.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Mainnet logic would go here
+      console.log("Preparing to burn on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
+      toast({
+        title: "Mainnet Action",
+        description: "Burning on Mainnet is not yet implemented.",
+      });
+    } else {
+      // Devnet simulation
       setIsBurning(true);
       setTimeout(() => {
         const burnedCount = selectedTokens.size;
@@ -69,16 +87,10 @@ export function SpamShield({ className }: { className?: string }) {
         setSelectedTokens(new Set());
         setIsBurning(false);
         toast({
-          title: "Spam Burned!",
+          title: "Spam Burned! (Testnet)",
           description: `You burned ${burnedCount} spam tokens and recovered ${solRecovered} SOL in rent fees.`,
         });
       }, 2000);
-    } else {
-       toast({
-        title: "Connect Wallet",
-        description: "Please connect your wallet to burn spam on Mainnet.",
-        variant: "destructive",
-      });
     }
   }
 
@@ -92,7 +104,7 @@ export function SpamShield({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-xl">
+      <Card className="flex flex-col w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <ShieldAlert className="w-6 h-6 text-primary" />
@@ -103,6 +115,10 @@ export function SpamShield({ className }: { className?: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md">
+            <Info className="w-4 h-4" />
+            <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
+          </div>
           {spamTokens.length > 0 ? (
             <>
               <div className="flex items-center justify-between">
@@ -114,7 +130,7 @@ export function SpamShield({ className }: { className?: string }) {
                     id="select-all" 
                     checked={allSelected} 
                     onCheckedChange={(e) => handleSelectAll(e as boolean)}
-                    disabled={(networkMode === 'mainnet-beta' && !connected)}
+                    disabled={(isMainnet && !connected)}
                   />
                   <Label htmlFor="select-all" className="text-sm">Select All</Label>
                 </div>
@@ -130,7 +146,7 @@ export function SpamShield({ className }: { className?: string }) {
                         id={token.name} 
                         checked={selectedTokens.has(token.name)}
                         onCheckedChange={() => handleToggleSelect(token.name)}
-                        disabled={(networkMode === 'mainnet-beta' && !connected)}
+                        disabled={(isMainnet && !connected)}
                       />
                       <div className="flex items-center gap-3 flex-1">
                         <Image

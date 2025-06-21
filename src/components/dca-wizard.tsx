@@ -18,37 +18,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarClock, Loader2 } from "lucide-react";
+import { CalendarClock, Loader2, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import { useContext, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
+import { getJupiterApiUrl } from "@/lib/jupiter-utils";
 
 export function DcaWizard({ className }: { className?: string }) {
   const { networkMode } = useContext(AppContext);
   const { connected } = useWallet();
   const { toast } = useToast();
   const [isScheduling, setIsScheduling] = useState(false);
-  const isActionDisabled = (networkMode === 'mainnet-beta' && !connected) || isScheduling;
+  
+  const isMainnet = networkMode === 'mainnet-beta';
+  const isActionDisabled = (isMainnet && !connected) || isScheduling;
 
   const handleScheduleDca = () => {
-    if (networkMode === 'devnet') {
+    if (isMainnet) {
+      if (!connected) {
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to schedule a DCA on Mainnet.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Mainnet logic would go here
+      console.log("Preparing to schedule DCA on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
+      toast({
+        title: "Mainnet Action",
+        description: "DCA Wizard on Mainnet is not yet implemented.",
+      });
+    } else {
+      // Devnet simulation
       setIsScheduling(true);
       setTimeout(() => {
         setIsScheduling(false);
         toast({
-          title: "DCA Scheduled",
+          title: "DCA Scheduled (Testnet)",
           description: "Your new dollar-cost averaging schedule has been successfully created.",
         });
       }, 1500);
-    } else {
-      // Mainnet logic would go here
-      toast({
-        title: "Connect Wallet",
-        description: "Please connect your wallet to schedule a DCA on Mainnet.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -60,7 +72,7 @@ export function DcaWizard({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-xl">
+      <Card className="flex flex-col w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <CalendarClock className="w-6 h-6 text-accent" />
@@ -71,6 +83,10 @@ export function DcaWizard({ className }: { className?: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md">
+            <Info className="w-4 h-4" />
+            <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="spend-amount">Amount to spend</Label>
             <Input id="spend-amount" placeholder="e.g., 100" type="number" disabled={isActionDisabled} />
