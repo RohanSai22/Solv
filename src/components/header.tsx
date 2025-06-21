@@ -6,7 +6,7 @@ import { Icons } from "@/components/icons";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { AppContext, AppView, Chain } from '@/contexts/AppContext';
+import { AppContext, type AppView, type Chain } from '@/contexts/AppContext';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { motion } from 'framer-motion';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
@@ -33,7 +33,7 @@ function WalletConnectButton() {
   const { chain } = useContext(AppContext);
 
   if (chain === 'solana') {
-    return <WalletMultiButton style={{height: '40px', fontSize: '14px'}} />;
+    return <WalletMultiButton style={{height: '40px', fontSize: '14px', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }} />;
   }
   
   return <ConnectButton />;
@@ -43,7 +43,7 @@ function MobileWalletConnectButton() {
     const { chain } = useContext(AppContext);
 
   if (chain === 'solana') {
-    return <WalletMultiButton style={{ width: '100%' }} />;
+    return <WalletMultiButton style={{ width: '100%', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }} />;
   }
 
   return <div className="w-full"><ConnectButton /></div>;
@@ -69,7 +69,7 @@ export default function Header() {
           {navItems.map(item => (
             <Button 
               key={item.view}
-              variant={activeView === item.view ? 'secondary': 'ghost'}
+              variant={activeView === item.view ? 'default': 'ghost'}
               size="sm"
               onClick={() => setActiveView(item.view)}
               className="relative"
@@ -77,7 +77,7 @@ export default function Header() {
               {item.label}
               {activeView === item.view && (
                 <motion.div 
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                  className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-primary"
                   layoutId="underline"
                 />
               )}

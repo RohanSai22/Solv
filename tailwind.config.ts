@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ["Lato", "sans-serif"],
-        headline: ["Oswald", "sans-serif"],
+        body: ["Inter", "sans-serif"],
+        headline: ["Lexend", "sans-serif"],
         code: ["monospace"],
       },
       colors: {
