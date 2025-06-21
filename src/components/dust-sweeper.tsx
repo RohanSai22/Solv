@@ -17,82 +17,172 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Loader2, Info } from "lucide-react";
+import { Sparkles, Loader2, Info, Wallet } from "lucide-react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useCallback } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
-import { getJupiterApiUrl } from "@/lib/jupiter-utils";
+import { getJupiterApiUrl, getPriorityFee } from "@/lib/jupiter-utils";
+import { getExplorerUrl } from "@/lib/solana-utils";
+import { Skeleton } from "./ui/skeleton";
+import type { WalletContextState } from "@solana/wallet-adapter-react";
+import type { VersionedTransaction } from "@solana/web3.js";
 
+// Define a type for the token data we expect from Jupiter's /balances
+type TokenBalance = {
+  address: string;
+  decimals: number;
+  amount: string;
+  uiAmount: number;
+  symbol: string;
+  logoURI: string;
+  name: string;
+  price_per_token: number;
+  coingecko_id: string;
+};
+
+// Define the dust threshold in USD
+const DUST_THRESHOLD_USD = 0.5;
+
+// Initial mock data for Devnet
 const initialDustTokens = [
-  {
-    name: "LOWB",
-    amount: "0.0012",
-    icon: "https://placehold.co/32x32.png",
-  },
-  {
-    name: "TINY",
-    amount: "0.0005",
-    icon: "https://placehold.co/32x32.png",
-  },
-  {
-    name: "屑",
-    amount: "1.53",
-    icon: "https://placehold.co/32x32.png",
-  },
-  {
-    name: "PEANUT",
-    amount: "10.2",
-    icon: "https://placehold.co/32x32.png",
-  },
+  { name: "LOWB", amount: "0.0012", icon: "https://placehold.co/32x32.png", mint: "lowb-mint-addr" },
+  { name: "TINY", amount: "0.0005", icon: "https://placehold.co/32x32.png", mint: "tiny-mint-addr" },
+  { name: "屑", amount: "1.53", icon: "https://placehold.co/32x32.png", mint: "kuzu-mint-addr" },
+  { name: "PEANUT", amount: "10.2", icon: "https://placehold.co/32x32.png", mint: "peanut-mint-addr" },
 ];
 
 export function DustSweeper({ className }: { className?: string }) {
   const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
-  const { connected } = useWallet();
+  const wallet = useWallet();
+  const { connected, publicKey } = wallet;
   const { toast } = useToast();
-  const [dustTokens, setDustTokens] = useState(initialDustTokens);
-  
+
+  const [dustTokens, setDustTokens] = useState<any[]>(initialDustTokens);
+  const [isBalancesLoading, setIsBalancesLoading] = useState(false);
+  const [outputToken, setOutputToken] = useState('SOL');
+
   const isMainnet = networkMode === 'mainnet-beta';
   const isActionDisabled = (isMainnet && !connected) || isActionInProgress || dustTokens.length === 0;
 
+  const fetchBalances = useCallback(async () => {
+    if (!isMainnet || !connected || !publicKey) {
+      setDustTokens(initialDustTokens); // Reset to mock data if not on mainnet/connected
+      return;
+    }
+
+    setIsBalancesLoading(true);
+    try {
+      const jupiterUrl = getJupiterApiUrl(networkMode);
+      const response = await fetch(`${jupiterUrl}/balances/${publicKey.toBase58()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch balances.');
+      }
+      const allTokens: TokenBalance[] = await response.json();
+      
+      const filteredDust = allTokens.filter(token => {
+        const usdValue = token.uiAmount * token.price_per_token;
+        return usdValue > 0 && usdValue < DUST_THRESHOLD_USD;
+      }).map(token => ({
+        name: token.symbol,
+        amount: token.uiAmount.toFixed(6),
+        icon: token.logoURI,
+        mint: token.address,
+        rawAmount: token.amount,
+      }));
+
+      setDustTokens(filteredDust);
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error Fetching Balances",
+        description: "Could not retrieve your token balances. Please try again later.",
+        variant: "destructive",
+      });
+      setDustTokens([]);
+    } finally {
+      setIsBalancesLoading(false);
+    }
+  }, [isMainnet, connected, publicKey, networkMode, toast]);
+
+  useEffect(() => {
+    fetchBalances();
+  }, [fetchBalances]);
+  
   useEffect(() => {
     return () => {
       setIsActionInProgress(false);
     };
   }, [setIsActionInProgress]);
+  
+  const handleSweep = async () => {
+    if (isActionDisabled) return;
 
-  const handleSweep = () => {
-    if (isMainnet) {
-      if (!connected) {
-        toast({
-          title: "Connect Wallet",
-          description: "Please connect your wallet to sweep dust on Mainnet.",
-          variant: "destructive",
-        });
-        return;
-      }
-      // Mainnet logic would go here
-      console.log("Preparing to sweep on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
-      toast({
-          title: "Mainnet Action",
-          description: "Sweeping on Mainnet is not yet implemented.",
-      });
-    } else {
-      // Devnet simulation
-      setIsActionInProgress(true);
+    setIsActionInProgress(true);
+
+    // --- Devnet Simulation ---
+    if (!isMainnet) {
       setTimeout(() => {
         const sweptCount = dustTokens.length;
         setDustTokens([]);
         setIsActionInProgress(false);
         toast({
           title: "Dust Swept! (Testnet)",
-          description: `You successfully converted ${sweptCount} tokens and earned 0.05 SOL.`,
+          description: `You successfully converted ${sweptCount} tokens and earned some ${outputToken}.`,
         });
       }, 2000);
+      return;
     }
+
+    // --- Mainnet Logic ---
+    if (!connected || !publicKey) {
+        toast({ title: "Wallet not connected", variant: "destructive" });
+        setIsActionInProgress(false);
+        return;
+    }
+    
+    const outputTokenMint = outputToken === 'SOL' ? 'So11111111111111111111111111111111111111112' : 
+                            outputToken === 'USDC' ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' : 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
+    let successCount = 0;
+    let lastTxSignature = '';
+
+    for (const token of dustTokens) {
+      try {
+        const tx = await getSwapTransaction(token.mint, outputTokenMint, token.rawAmount, publicKey.toBase58(), networkMode);
+        const signedTx = await signTransaction(tx, wallet);
+        const signature = await executeTransaction(signedTx);
+        lastTxSignature = signature;
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to sweep ${token.name}:`, error);
+        toast({
+            title: `Sweep Failed for ${token.name}`,
+            description: (error as Error).message || "An unknown error occurred.",
+            variant: "destructive",
+        });
+        // Stop on first failure
+        break; 
+      }
+    }
+
+    if (successCount > 0) {
+      toast({
+        title: "Sweep Complete!",
+        description: `Successfully swept ${successCount} of ${dustTokens.length} tokens.`,
+        action: lastTxSignature ? (
+          <a href={getExplorerUrl(lastTxSignature, networkMode)} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm">View Last Tx</Button>
+          </a>
+        ) : undefined,
+      });
+    }
+
+    // Refetch balances to show updated state
+    await fetchBalances();
+    setIsActionInProgress(false);
   };
 
   return (
@@ -110,7 +200,7 @@ export function DustSweeper({ className }: { className?: string }) {
             Dust Sweeper
           </CardTitle>
           <CardDescription>
-            Convert small balance tokens into something useful.
+            Convert small balance tokens into something useful (under ${DUST_THRESHOLD_USD}).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
@@ -118,7 +208,13 @@ export function DustSweeper({ className }: { className?: string }) {
             <Info className="w-4 h-4" />
             <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
           </div>
-          {dustTokens.length > 0 ? (
+          {isBalancesLoading ? (
+            <div className="space-y-3 h-48">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : dustTokens.length > 0 ? (
             <>
               <p className="text-sm text-muted-foreground">
                 Found {dustTokens.length} dust tokens in your wallet.
@@ -126,15 +222,16 @@ export function DustSweeper({ className }: { className?: string }) {
               <ScrollArea className="h-48 w-full pr-4">
                 <div className="space-y-3">
                   {dustTokens.map((token) => (
-                    <div key={token.name} className="flex items-center justify-between">
+                    <div key={token.mint} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Image
                           src={token.icon}
                           alt={`${token.name} icon`}
                           width={32}
                           height={32}
-                          className="rounded-full"
+                          className="rounded-full bg-muted"
                           data-ai-hint="crypto token"
+                          unoptimized // Avoids next/image optimization for external URLs
                         />
                         <div>
                           <p className="font-bold">{token.name}</p>
@@ -147,20 +244,21 @@ export function DustSweeper({ className }: { className?: string }) {
               </ScrollArea>
             </>
           ) : (
-            <div className="flex items-center justify-center h-48 text-muted-foreground">
-              <p>No dust tokens found!</p>
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-center gap-4">
+              <Wallet className="w-12 h-12" />
+              <p>{connected ? "No dust tokens found. Your wallet is clean!" : "Connect your wallet to scan for dust."}</p>
             </div>
           )}
         </CardContent>
         <CardFooter className="flex-col sm:flex-row gap-2">
-          <Select defaultValue="jup" disabled={isActionDisabled}>
+          <Select defaultValue={outputToken} onValueChange={setOutputToken} disabled={isActionDisabled}>
             <SelectTrigger>
               <SelectValue placeholder="Convert to" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="jup">Jupiter (JUP)</SelectItem>
-              <SelectItem value="sol">Solana (SOL)</SelectItem>
-              <SelectItem value="usdc">USDC</SelectItem>
+              <SelectItem value="SOL">Solana (SOL)</SelectItem>
+              <SelectItem value="JUP">Jupiter (JUP)</SelectItem>
+              <SelectItem value="USDC">USDC</SelectItem>
             </SelectContent>
           </Select>
           <Button className="w-full sm:w-auto" disabled={isActionDisabled} onClick={handleSweep}>
@@ -171,4 +269,62 @@ export function DustSweeper({ className }: { className?: string }) {
       </Card>
     </motion.div>
   );
+}
+
+// --- API Helper Functions ---
+
+async function getSwapTransaction(inputMint: string, outputMint: string, amount: string, userPublicKey: string, networkMode: 'devnet' | 'mainnet-beta'): Promise<VersionedTransaction> {
+  const jupiterUrl = getJupiterApiUrl(networkMode);
+  const priorityFee = getPriorityFee(networkMode);
+
+  const params = new URLSearchParams({
+    inputMint,
+    outputMint,
+    amount,
+    userPublicKey,
+    slippageBps: '50', // 0.5%
+    prioritizationFeeLamports: priorityFee.toString(),
+  });
+  
+  const response = await fetch(`${jupiterUrl}/order?${params.toString()}`);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to get swap order from Jupiter API.");
+  }
+  const { tx } = await response.json();
+
+  // The transaction is returned as a base64 string, so we need to deserialize it
+  const transactionBuffer = Buffer.from(tx, 'base64');
+  return VersionedTransaction.deserialize(transactionBuffer);
+}
+
+async function signTransaction(transaction: VersionedTransaction, wallet: WalletContextState): Promise<VersionedTransaction> {
+  if (!wallet.signTransaction) {
+    throw new Error("Wallet does not support signing transactions.");
+  }
+  return await wallet.signTransaction(transaction);
+}
+
+async function executeTransaction(signedTransaction: VersionedTransaction): Promise<string> {
+    const jupiterUrl = getJupiterApiUrl('mainnet-beta'); // Execute always on mainnet endpoint
+    
+    // Serialize the signed transaction to base64
+    const signedTxBase64 = Buffer.from(signedTransaction.serialize()).toString('base64');
+    
+    const response = await fetch(`${jupiterUrl}/execute`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transaction: signedTxBase64 }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to execute transaction via Jupiter API.");
+    }
+
+    const { signature } = await response.json();
+    return signature;
 }
