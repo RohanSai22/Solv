@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Droplets, Loader2, Info } from "lucide-react";
 import { motion } from "framer-motion";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Label } from "./ui/label";
@@ -26,13 +26,18 @@ import { useToast } from "@/hooks/use-toast";
 import { getJupiterApiUrl } from "@/lib/jupiter-utils";
 
 export function SolRefuel({ className }: { className?: string }) {
-  const { networkMode } = useContext(AppContext);
+  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
   const { connected } = useWallet();
   const { toast } = useToast();
-  const [isRefueling, setIsRefueling] = useState(false);
   
   const isMainnet = networkMode === 'mainnet-beta';
-  const isActionDisabled = (isMainnet && !connected) || isRefueling;
+  const isActionDisabled = (isMainnet && !connected) || isActionInProgress;
+
+  useEffect(() => {
+    return () => {
+      setIsActionInProgress(false);
+    };
+  }, [setIsActionInProgress]);
 
   const handleRefuel = () => {
     if (isMainnet) {
@@ -52,9 +57,9 @@ export function SolRefuel({ className }: { className?: string }) {
       });
     } else {
       // Devnet simulation
-      setIsRefueling(true);
+      setIsActionInProgress(true);
       setTimeout(() => {
-        setIsRefueling(false);
+        setIsActionInProgress(false);
         toast({
           title: "Refuel Successful! (Testnet)",
           description: "Your SOL balance has been topped up.",
@@ -121,8 +126,8 @@ export function SolRefuel({ className }: { className?: string }) {
         </CardContent>
         <CardFooter>
           <Button className="w-full" disabled={isActionDisabled} onClick={handleRefuel}>
-            {isRefueling && <Loader2 className="animate-spin" />}
-            {isRefueling ? 'Refueling...' : 'Refuel Now'}
+            {isActionInProgress && <Loader2 className="animate-spin" />}
+            {isActionInProgress ? 'Refueling...' : 'Refuel Now'}
           </Button>
         </CardFooter>
       </Card>

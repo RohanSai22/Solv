@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sparkles, Loader2, Info } from "lucide-react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
@@ -50,14 +50,19 @@ const initialDustTokens = [
 ];
 
 export function DustSweeper({ className }: { className?: string }) {
-  const { networkMode } = useContext(AppContext);
+  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
   const { connected } = useWallet();
   const { toast } = useToast();
   const [dustTokens, setDustTokens] = useState(initialDustTokens);
-  const [isSweeping, setIsSweeping] = useState(false);
-
+  
   const isMainnet = networkMode === 'mainnet-beta';
-  const isActionDisabled = (isMainnet && !connected) || isSweeping || dustTokens.length === 0;
+  const isActionDisabled = (isMainnet && !connected) || isActionInProgress || dustTokens.length === 0;
+
+  useEffect(() => {
+    return () => {
+      setIsActionInProgress(false);
+    };
+  }, [setIsActionInProgress]);
 
   const handleSweep = () => {
     if (isMainnet) {
@@ -77,11 +82,11 @@ export function DustSweeper({ className }: { className?: string }) {
       });
     } else {
       // Devnet simulation
-      setIsSweeping(true);
+      setIsActionInProgress(true);
       setTimeout(() => {
         const sweptCount = dustTokens.length;
         setDustTokens([]);
-        setIsSweeping(false);
+        setIsActionInProgress(false);
         toast({
           title: "Dust Swept! (Testnet)",
           description: `You successfully converted ${sweptCount} tokens and earned 0.05 SOL.`,
@@ -159,8 +164,8 @@ export function DustSweeper({ className }: { className?: string }) {
             </SelectContent>
           </Select>
           <Button className="w-full sm:w-auto" disabled={isActionDisabled} onClick={handleSweep}>
-            {isSweeping ? <Loader2 className="animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {isSweeping ? "Sweeping..." : "Sweep All"}
+            {isActionInProgress ? <Loader2 className="animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {isActionInProgress ? "Sweeping..." : "Sweep All"}
           </Button>
         </CardFooter>
       </Card>

@@ -20,20 +20,25 @@ import {
 } from "@/components/ui/select";
 import { CalendarClock, Loader2, Info } from "lucide-react";
 import { motion } from "framer-motion";
-import { useContext, useState } from "react";
+import { useContext, useEffect } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
 import { getJupiterApiUrl } from "@/lib/jupiter-utils";
 
 export function DcaWizard({ className }: { className?: string }) {
-  const { networkMode } = useContext(AppContext);
+  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
   const { connected } = useWallet();
   const { toast } = useToast();
-  const [isScheduling, setIsScheduling] = useState(false);
   
   const isMainnet = networkMode === 'mainnet-beta';
-  const isActionDisabled = (isMainnet && !connected) || isScheduling;
+  const isFormDisabled = (isMainnet && !connected) || isActionInProgress;
+
+  useEffect(() => {
+    return () => {
+      setIsActionInProgress(false);
+    };
+  }, [setIsActionInProgress]);
 
   const handleScheduleDca = () => {
     if (isMainnet) {
@@ -53,9 +58,9 @@ export function DcaWizard({ className }: { className?: string }) {
       });
     } else {
       // Devnet simulation
-      setIsScheduling(true);
+      setIsActionInProgress(true);
       setTimeout(() => {
-        setIsScheduling(false);
+        setIsActionInProgress(false);
         toast({
           title: "DCA Scheduled (Testnet)",
           description: "Your new dollar-cost averaging schedule has been successfully created.",
@@ -89,11 +94,11 @@ export function DcaWizard({ className }: { className?: string }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="spend-amount">Amount to spend</Label>
-            <Input id="spend-amount" placeholder="e.g., 100" type="number" disabled={isActionDisabled} />
+            <Input id="spend-amount" placeholder="e.g., 100" type="number" disabled={isFormDisabled} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="spend-token">Spend Token</Label>
-            <Select disabled={isActionDisabled}>
+            <Select disabled={isFormDisabled}>
               <SelectTrigger id="spend-token">
                 <SelectValue placeholder="Select token" />
               </SelectTrigger>
@@ -106,7 +111,7 @@ export function DcaWizard({ className }: { className?: string }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="buy-token">Buy Token</Label>
-            <Select disabled={isActionDisabled}>
+            <Select disabled={isFormDisabled}>
               <SelectTrigger id="buy-token">
                 <SelectValue placeholder="Select token" />
               </SelectTrigger>
@@ -119,7 +124,7 @@ export function DcaWizard({ className }: { className?: string }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="frequency">Frequency</Label>
-            <Select disabled={isActionDisabled}>
+            <Select disabled={isFormDisabled}>
               <SelectTrigger id="frequency">
                 <SelectValue placeholder="Select frequency" />
               </SelectTrigger>
@@ -132,9 +137,9 @@ export function DcaWizard({ className }: { className?: string }) {
           </div>
         </CardContent>
         <CardFooter>
-          <Button className="w-full" disabled={isActionDisabled} onClick={handleScheduleDca}>
-            {isScheduling && <Loader2 className="animate-spin" />}
-            {isScheduling ? "Scheduling..." : "Schedule DCA"}
+          <Button className="w-full" disabled={isFormDisabled} onClick={handleScheduleDca}>
+            {isActionInProgress && <Loader2 className="animate-spin" />}
+            {isActionInProgress ? "Scheduling..." : "Schedule DCA"}
           </Button>
         </CardFooter>
       </Card>

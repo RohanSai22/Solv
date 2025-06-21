@@ -22,7 +22,7 @@ const navItems: { view: AppView; label: string }[] = [
 ];
 
 export default function Header() {
-  const { networkMode, setNetworkMode, activeView, setActiveView } = useContext(AppContext);
+  const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress } = useContext(AppContext);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -60,7 +60,8 @@ export default function Header() {
           <div className="hidden md:flex items-center space-x-2">
             <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
             <Switch 
-              id="network-mode-desktop" 
+              id="network-mode-desktop"
+              disabled={isActionInProgress}
               checked={networkMode === 'mainnet-beta'}
               onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
             />
@@ -108,7 +109,8 @@ export default function Header() {
                     <div className="flex items-center justify-center space-x-2">
                       <Label htmlFor="network-mode-mobile" className="text-sm text-muted-foreground">Testnet</Label>
                       <Switch 
-                        id="network-mode-mobile" 
+                        id="network-mode-mobile"
+                        disabled={isActionInProgress}
                         checked={networkMode === 'mainnet-beta'}
                         onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
                       />

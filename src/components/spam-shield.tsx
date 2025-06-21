@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Flame, ShieldAlert, Loader2, Info } from "lucide-react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { useContext, useState, useMemo } from "react";
+import { useContext, useState, useMemo, useEffect } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
@@ -30,16 +30,21 @@ const initialSpamTokens = [
 ];
 
 export function SpamShield({ className }: { className?: string }) {
-  const { networkMode } = useContext(AppContext);
+  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
   const { connected } = useWallet();
   const { toast } = useToast();
   
   const [spamTokens, setSpamTokens] = useState(initialSpamTokens);
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
-  const [isBurning, setIsBurning] = useState(false);
 
   const isMainnet = networkMode === 'mainnet-beta';
-  const isActionDisabled = (isMainnet && !connected) || isBurning || selectedTokens.size === 0;
+  const isActionDisabled = (isMainnet && !connected) || isActionInProgress || selectedTokens.size === 0;
+
+  useEffect(() => {
+    return () => {
+      setIsActionInProgress(false);
+    };
+  }, [setIsActionInProgress]);
 
   const handleToggleSelect = (tokenName: string) => {
     setSelectedTokens(prev => {
@@ -79,13 +84,13 @@ export function SpamShield({ className }: { className?: string }) {
       });
     } else {
       // Devnet simulation
-      setIsBurning(true);
+      setIsActionInProgress(true);
       setTimeout(() => {
         const burnedCount = selectedTokens.size;
         const solRecovered = (burnedCount * 0.0003).toFixed(4);
         setSpamTokens(prev => prev.filter(t => !selectedTokens.has(t.name)));
         setSelectedTokens(new Set());
-        setIsBurning(false);
+        setIsActionInProgress(false);
         toast({
           title: "Spam Burned! (Testnet)",
           description: `You burned ${burnedCount} spam tokens and recovered ${solRecovered} SOL in rent fees.`,
@@ -177,8 +182,8 @@ export function SpamShield({ className }: { className?: string }) {
         </CardContent>
         <CardFooter>
           <Button variant="destructive" className="w-full" disabled={isActionDisabled} onClick={handleBurn}>
-            {isBurning ? <Loader2 className="animate-spin" /> : <Flame className="w-4 h-4" />}
-            {isBurning ? "Burning..." : `Burn ${selectedTokens.size} Selected Spam`}
+            {isActionInProgress ? <Loader2 className="animate-spin" /> : <Flame className="w-4 h-4" />}
+            {isActionInProgress ? "Burning..." : `Burn ${selectedTokens.size} Selected Spam`}
           </Button>
         </CardFooter>
       </Card>

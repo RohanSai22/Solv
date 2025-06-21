@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { ListOrdered, Loader2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
@@ -45,15 +45,20 @@ const initialOrders: Order[] = [
 ];
 
 export function LimitOrder({ className }: { className?: string }) {
-  const { networkMode } = useContext(AppContext);
+  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
   const { connected } = useWallet();
   const { toast } = useToast();
   
   const [orders, setOrders] = useState<Order[]>(initialOrders);
-  const [isLoading, setIsLoading] = useState(false);
 
   const isMainnet = networkMode === 'mainnet-beta';
-  const isActionDisabled = (isMainnet && !connected) || isLoading;
+  const isActionDisabled = (isMainnet && !connected) || isActionInProgress;
+
+  useEffect(() => {
+    return () => {
+      setIsActionInProgress(false);
+    };
+  }, [setIsActionInProgress]);
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +78,7 @@ export function LimitOrder({ className }: { className?: string }) {
       });
 
     } else {
-      setIsLoading(true);
+      setIsActionInProgress(true);
       setTimeout(() => {
         const newOrder: Order = {
           id: (Math.random() * 1000).toString(),
@@ -84,7 +89,7 @@ export function LimitOrder({ className }: { className?: string }) {
           filled: "0%",
         };
         setOrders(prev => [newOrder, ...prev]);
-        setIsLoading(false);
+        setIsActionInProgress(false);
         toast({
           title: "Order Created (Testnet)",
           description: "Your new limit order has been placed.",
@@ -169,8 +174,8 @@ export function LimitOrder({ className }: { className?: string }) {
                     <Input id="amount" placeholder="Amount to trade" type="number" disabled={isActionDisabled}/>
                   </div>
                   <Button type="submit" className="w-full" disabled={isActionDisabled}>
-                    {isLoading && <Loader2 className="animate-spin" />}
-                    {isLoading ? "Creating Order..." : "Create Limit Order"}
+                    {isActionInProgress && <Loader2 className="animate-spin" />}
+                    {isActionInProgress ? "Creating Order..." : "Create Limit Order"}
                   </Button>
                 </div>
               </form>

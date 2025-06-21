@@ -11,6 +11,8 @@ interface AppContextType {
     setNetworkMode: Dispatch<SetStateAction<NetworkMode>>;
     activeView: AppView;
     setActiveView: Dispatch<SetStateAction<AppView>>;
+    isActionInProgress: boolean;
+    setIsActionInProgress: Dispatch<SetStateAction<boolean>>;
 }
 
 const defaultNetworkMode = config.cluster === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
@@ -20,14 +22,21 @@ export const AppContext = createContext<AppContextType>({
     setNetworkMode: () => {},
     activeView: null,
     setActiveView: () => {},
+    isActionInProgress: false,
+    setIsActionInProgress: () => {},
 });
 
 export const AppContextProvider = ({ children }: { children: React.ReactNode }) => {
     const [networkMode, setNetworkMode] = useState<NetworkMode>(defaultNetworkMode);
     const [activeView, setActiveView] = useState<AppView>(null);
+    const [isActionInProgress, setIsActionInProgress] = useState(false);
 
     return (
-        <AppContext.Provider value={{ networkMode, setNetworkMode, activeView, setActiveView }}>
+        <AppContext.Provider value={{ 
+            networkMode, setNetworkMode, 
+            activeView, setActiveView,
+            isActionInProgress, setIsActionInProgress
+        }}>
             {children}
         </AppContext.Provider>
     );
