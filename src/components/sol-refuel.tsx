@@ -48,12 +48,19 @@ export function SolRefuel({ className }: { className?: string }) {
   const [isFetchingBalance, setIsFetchingBalance] = useState(false);
   const [selectedRefuelOption, setSelectedRefuelOption] = useState(REFUEL_OPTIONS[1].value);
 
+  // State for a more realistic devnet simulation
+  const [devnetSolBalance, setDevnetSolBalance] = useState(0.01 * LAMPORTS_PER_SOL);
+
   const isMainnet = networkMode === 'mainnet-beta';
-  const needsRefuel = useMemo(() => solBalance !== null && solBalance < LOW_SOL_THRESHOLD, [solBalance]);
-  const isActionDisabled = (isMainnet && (!connected || !needsRefuel)) || isActionInProgress;
+  const needsRefuel = useMemo(() => {
+    if (!isMainnet) return true; // Always allow refueling on devnet for testing
+    return solBalance !== null && solBalance < LOW_SOL_THRESHOLD;
+  }, [solBalance, isMainnet]);
+  const isActionDisabled = (isMainnet && !connected) || !needsRefuel || isActionInProgress;
+
 
   const fetchSolBalance = useCallback(async () => {
-    if (!connected || !publicKey) {
+    if (!isMainnet || !connected || !publicKey) {
       setSolBalance(null);
       return;
     }
@@ -67,11 +74,13 @@ export function SolRefuel({ className }: { className?: string }) {
     } finally {
       setIsFetchingBalance(false);
     }
-  }, [connected, publicKey, connection]);
+  }, [isMainnet, connected, publicKey, connection]);
 
   useEffect(() => {
-    fetchSolBalance();
-  }, [fetchSolBalance]);
+    if (isMainnet) {
+      fetchSolBalance();
+    }
+  }, [isMainnet, fetchSolBalance]);
 
   useEffect(() => {
     return () => {
@@ -80,7 +89,7 @@ export function SolRefuel({ className }: { className?: string }) {
   }, [setIsActionInProgress]);
 
   const handleRefuel = async () => {
-    if (isActionDisabled || !publicKey) return;
+    if (isActionDisabled || (isMainnet && !publicKey)) return;
 
     setIsActionInProgress(true);
 
@@ -95,7 +104,7 @@ export function SolRefuel({ className }: { className?: string }) {
       // Devnet simulation
       setTimeout(() => {
         setIsActionInProgress(false);
-        setSolBalance(prev => (prev ?? 0) + (0.02 * LAMPORTS_PER_SOL));
+        setDevnetSolBalance(prev => prev + (0.02 * LAMPORTS_PER_SOL));
         toast({
           title: "Refuel Successful! (Testnet)",
           description: "Your SOL balance has been topped up.",
@@ -110,7 +119,7 @@ export function SolRefuel({ className }: { className?: string }) {
             inputMint: option.inputMint,
             outputMint: 'So11111111111111111111111111111111111111112', // Native SOL
             amount: option.value,
-            userPublicKey: publicKey.toBase58(),
+            userPublicKey: publicKey!.toBase58(),
             networkMode: 'mainnet-beta'
         });
 
@@ -147,6 +156,8 @@ export function SolRefuel({ className }: { className?: string }) {
     if (solBalance === null) return "N/A";
     return `${(solBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL`;
   }, [solBalance, isFetchingBalance]);
+  
+  const devnetDisplayBalance = `${(devnetSolBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL`;
 
   return (
     <motion.div
@@ -175,7 +186,7 @@ export function SolRefuel({ className }: { className?: string }) {
           <div className="p-4 rounded-lg bg-secondary/50 text-center">
               <p className="text-sm text-muted-foreground">Your SOL Balance</p>
               <div className="text-2xl font-bold font-mono h-8 flex items-center justify-center">
-                 {isMainnet ? displayBalance : '1.2500 SOL'}
+                 {isMainnet ? displayBalance : devnetDisplayBalance}
               </div>
           </div>
 
