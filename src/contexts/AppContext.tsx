@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useState, Dispatch, SetStateAction } from 'react';
+import React, { createContext, useState, Dispatch, SetStateAction, useEffect } from 'react';
 import { config } from '@/config';
 
 export type NetworkMode = 'devnet' | 'mainnet-beta';
@@ -36,6 +36,13 @@ export const AppContextProvider = ({ children }: { children: React.ReactNode }) 
     const [activeView, setActiveView] = useState<AppView>(null);
     const [isActionInProgress, setIsActionInProgress] = useState(false);
     const [chain, setChain] = useState<Chain>('solana');
+
+    // When switching to an EVM chain, default to mainnet if currently on devnet
+    useEffect(() => {
+        if (chain !== 'solana' && networkMode === 'devnet') {
+            setNetworkMode('mainnet-beta');
+        }
+    }, [chain, networkMode]);
 
     return (
         <AppContext.Provider value={{ 

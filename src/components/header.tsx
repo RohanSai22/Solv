@@ -12,6 +12,7 @@ import { motion } from 'framer-motion';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Menu, ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 const navItems: { view: AppView; label: string }[] = [
   { view: 'dust-sweeper', label: 'Dust Sweeper' },
@@ -27,6 +28,27 @@ const chainLabels: Record<Chain, string> = {
   ethereum: "Ethereum",
   polygon: "Polygon",
 };
+
+function WalletConnectButton() {
+  const { chain } = useContext(AppContext);
+
+  if (chain === 'solana') {
+    return <WalletMultiButton style={{height: '40px', fontSize: '14px'}} />;
+  }
+  
+  return <ConnectButton />;
+}
+
+function MobileWalletConnectButton() {
+    const { chain } = useContext(AppContext);
+
+  if (chain === 'solana') {
+    return <WalletMultiButton style={{ width: '100%' }} />;
+  }
+
+  return <div className="w-full"><ConnectButton /></div>;
+}
+
 
 export default function Header() {
   const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress, chain, setChain } = useContext(AppContext);
@@ -73,8 +95,8 @@ export default function Header() {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setChain('ethereum')} disabled>Ethereum (Soon)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setChain('polygon')} disabled>Polygon (Soon)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -90,8 +112,7 @@ export default function Header() {
           </div>
           <Separator orientation="vertical" className="h-6 hidden md:block" />
           <div className="hidden md:block">
-             {chain === 'solana' && <WalletMultiButton style={{height: '36px', fontSize: '14px'}} />}
-             {chain !== 'solana' && <Button disabled size="sm">Connect EVM Wallet</Button>}
+             <WalletConnectButton />
           </div>
 
           <div className="md:hidden">
@@ -128,6 +149,20 @@ export default function Header() {
                     ))}
                   </nav>
                   <div className="p-4 border-t space-y-4">
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="w-full">
+                            {chainLabels[chain]}
+                            <ChevronDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-[calc(100vw-2rem)]">
+                          <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
                     <div className="flex items-center justify-center space-x-2">
                       <Label htmlFor="network-mode-mobile" className="text-sm text-muted-foreground">Testnet</Label>
                       <Switch 
@@ -138,8 +173,7 @@ export default function Header() {
                       />
                       <Label htmlFor="network-mode-mobile" className="text-sm">Mainnet</Label>
                     </div>
-                     {chain === 'solana' && <WalletMultiButton style={{ width: '100%' }} />}
-                     {chain !== 'solana' && <Button disabled className="w-full">Connect EVM Wallet</Button>}
+                     <MobileWalletConnectButton />
                   </div>
                 </div>
               </SheetContent>
