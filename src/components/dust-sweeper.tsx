@@ -213,7 +213,7 @@ export function DustSweeper({ className }: { className?: string }) {
             Dust Sweeper
           </CardTitle>
           <CardDescription>
-            Convert small balance tokens into something useful (under ${DUST_THRESHOLD_USD}).
+            Consolidate small token balances from your connected wallets into a useful asset.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
