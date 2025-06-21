@@ -33,7 +33,7 @@ function WalletConnectButton() {
   const { chain } = useContext(AppContext);
 
   if (chain === 'solana') {
-    return <WalletMultiButton style={{height: '40px', fontSize: '14px', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }} />;
+    return <WalletMultiButton />;
   }
   
   return <ConnectButton />;
@@ -43,7 +43,7 @@ function MobileWalletConnectButton() {
     const { chain } = useContext(AppContext);
 
   if (chain === 'solana') {
-    return <WalletMultiButton style={{ width: '100%', background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }} />;
+    return <WalletMultiButton className="w-full" />;
   }
 
   return <div className="w-full"><ConnectButton /></div>;
@@ -86,19 +86,21 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center justify-end space-x-2 md:space-x-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="hidden md:flex">
-                {chainLabels[chain]}
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {activeView === 'dust-sweeper' && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="hidden md:flex">
+                  {chainLabels[chain]}
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <div className="hidden md:flex items-center space-x-2">
             <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
@@ -149,19 +151,21 @@ export default function Header() {
                     ))}
                   </nav>
                   <div className="p-4 border-t space-y-4">
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full">
-                            {chainLabels[chain]}
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-[calc(100vw-2rem)]">
-                          <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                     {activeView === 'dust-sweeper' && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full">
+                              {chainLabels[chain]}
+                              <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="w-[calc(100vw-2rem)]">
+                            <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
 
                     <div className="flex items-center justify-center space-x-2">
                       <Label htmlFor="network-mode-mobile" className="text-sm text-muted-foreground">Testnet</Label>
