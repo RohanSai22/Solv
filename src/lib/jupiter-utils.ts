@@ -234,3 +234,93 @@ export async function cancelRecurringOrder({
   }
   return response.json();
 }
+
+// --- API Helper Functions for Trigger Orders ---
+
+export type TriggerOrderParams = {
+  maker: PublicKey;
+  inputMint: string;
+  outputMint: string;
+  makingAmount: string;
+  takingAmount: string;
+};
+
+export type TriggerOrder = {
+    id: string;
+    maker: string;
+    inputMint: string;
+    outputMint: string;
+    makingAmount: string;
+    takingAmount: string;
+    status: 'OPEN' | 'CANCELLED' | 'COMPLETED' | 'TRIGGERED';
+    signature?: string;
+}
+
+type CreateTriggerOrderResponse = {
+  requestId: string;
+  transaction: string; // base64
+};
+
+export async function createTriggerOrder(params: TriggerOrderParams, networkMode: NetworkMode): Promise<CreateTriggerOrderResponse> {
+    const jupiterUrl = getJupiterApiUrl(networkMode);
+    const body = {
+        maker: params.maker.toBase58(),
+        inputMint: params.inputMint,
+        outputMint: params.outputMint,
+        makingAmount: params.makingAmount,
+        takingAmount: params.takingAmount,
+        payer: params.maker.toBase58(),
+    }
+    const response = await fetch(`${jupiterUrl}/trigger/v1/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.cause || "Failed to create trigger order.");
+    }
+    return response.json();
+}
+
+export async function executeTriggerOrder({ requestId, signedTransaction }: { requestId: string, signedTransaction: VersionedTransaction }, networkMode: NetworkMode) {
+    const jupiterUrl = getJupiterApiUrl(networkMode);
+    const signedTxBase64 = Buffer.from(signedTransaction.serialize()).toString('base64');
+    const response = await fetch(`${jupiterUrl}/trigger/v1/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, signedTransaction: signedTxBase64 }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.cause || "Failed to execute trigger order.");
+    }
+    return response.json();
+}
+
+export async function getTriggerOrders(user: PublicKey, networkMode: NetworkMode): Promise<TriggerOrder[]> {
+    const jupiterUrl = getJupiterApiUrl(networkMode);
+    const response = await fetch(`${jupiterUrl}/trigger/v1/orders?user=${user.toBase58()}`);
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.cause || "Failed to fetch trigger orders.");
+    }
+    return response.json();
+}
+
+export async function cancelTriggerOrder({ orderId, maker }: { orderId: string, maker: PublicKey }, networkMode: NetworkMode): Promise<CreateTriggerOrderResponse> {
+    const jupiterUrl = getJupiterApiUrl(networkMode);
+    const response = await fetch(`${jupiterUrl}/trigger/v1/cancelOrder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, maker: maker.toBase58() }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.cause || "Failed to cancel trigger order.");
+    }
+    return response.json();
+}

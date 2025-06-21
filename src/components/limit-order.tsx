@@ -20,109 +20,187 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ListOrdered, Loader2, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ListOrdered, Loader2, Info, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useCallback } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
-import { getJupiterApiUrl } from "@/lib/jupiter-utils";
+import {
+  createTriggerOrder,
+  executeTriggerOrder,
+  getTriggerOrders,
+  cancelTriggerOrder,
+  type TriggerOrder,
+  type TriggerOrderParams,
+} from "@/lib/jupiter-utils";
+import { VersionedTransaction } from "@solana/web3.js";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Skeleton } from "./ui/skeleton";
 
-type Order = {
-  id: string;
-  pair: string;
-  type: "Buy" | "Sell";
-  price: string;
-  amount: string;
-  filled: string;
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const JUP_MINT = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
+const MINT_DECIMALS: Record<string, number> = {
+  [SOL_MINT]: 9,
+  [USDC_MINT]: 6,
+  [JUP_MINT]: 6
 };
 
-const initialOrders: Order[] = [
-  { id: "1", pair: "SOL/USDC", type: "Buy", price: "145.50", amount: "10.0", filled: "20%" },
-  { id: "2", pair: "JUP/USDC", type: "Sell", price: "1.25", amount: "500.0", filled: "0%" },
-  { id: "3", pair: "BONK/SOL", type: "Buy", price: "0.000028", amount: "1,000,000", filled: "100%" },
+// Initial mock data for Devnet
+const initialOrders: TriggerOrder[] = [
+  { id: "1", status: "OPEN", makingAmount: "1000000000", takingAmount: "145500000", inputMint: SOL_MINT, outputMint: USDC_MINT, maker: "simulated-user" },
+  { id: "2", status: "OPEN", makingAmount: "500000000", takingAmount: "625000000", inputMint: JUP_MINT, outputMint: USDC_MINT, maker: "simulated-user" },
+  { id: "3", status: "COMPLETED", makingAmount: "100000000", takingAmount: "2800", inputMint: "BONK-MINT", outputMint: SOL_MINT, maker: "simulated-user" },
 ];
+
 
 export function LimitOrder({ className }: { className?: string }) {
   const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
-  const { connected } = useWallet();
+  const wallet = useWallet();
+  const { connected, publicKey, signTransaction } = wallet;
   const { toast } = useToast();
-  
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
+
+  const [orders, setOrders] = useState<TriggerOrder[]>(initialOrders);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isCancelling, setIsCancelling] = useState<string | null>(null);
+
+  // Form State
+  const [inputMint, setInputMint] = useState(SOL_MINT);
+  const [outputMint, setOutputMint] = useState(USDC_MINT);
+  const [makingAmount, setMakingAmount] = useState('1'); // Amount user sells
+  const [takingAmount, setTakingAmount] = useState('150'); // Amount user wants to get
 
   const isMainnet = networkMode === 'mainnet-beta';
-  const isActionDisabled = (isMainnet && !connected) || isActionInProgress;
+  const isFormDisabled = (isMainnet && !connected) || isCreating || !!isCancelling;
+
+  const fetchOrders = useCallback(async () => {
+    if (!isMainnet || !connected || !publicKey) {
+      setOrders(initialOrders);
+      return;
+    }
+    setIsFetching(true);
+    try {
+      const fetchedOrders = await getTriggerOrders(publicKey, networkMode);
+      setOrders(fetchedOrders);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Failed to fetch orders', description: (error as Error).message });
+    } finally {
+      setIsFetching(false);
+    }
+  }, [isMainnet, connected, publicKey, networkMode, toast]);
 
   useEffect(() => {
-    return () => {
-      setIsActionInProgress(false);
-    };
-  }, [setIsActionInProgress]);
+    if (isMainnet && connected) {
+      fetchOrders();
+      const interval = setInterval(fetchOrders, 15000);
+      return () => clearInterval(interval);
+    } else {
+      setOrders(initialOrders);
+    }
+  }, [isMainnet, connected, fetchOrders]);
 
-  const handleCreateOrder = (e: React.FormEvent) => {
+
+  const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isMainnet) {
-       if (!connected) {
-        toast({
-          title: "Connect Wallet",
-          description: "Please connect your wallet to create an order on Mainnet.",
-          variant: "destructive",
-        });
-        return;
-      }
-      console.log("Preparing to create order on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
-      toast({
-        title: "Mainnet Action",
-        description: "Limit orders on Mainnet are not yet implemented.",
-      });
+    if (isFormDisabled) return;
 
-    } else {
-      setIsActionInProgress(true);
-      setTimeout(() => {
-        const newOrder: Order = {
-          id: (Math.random() * 1000).toString(),
-          pair: "NEW/USDC",
-          type: "Buy",
-          price: "100.00",
-          amount: "1.0",
-          filled: "0%",
-        };
-        setOrders(prev => [newOrder, ...prev]);
-        setIsActionInProgress(false);
-        toast({
-          title: "Order Created (Testnet)",
-          description: "Your new limit order has been placed.",
-        });
-      }, 1500);
+    setIsCreating(true);
+    setIsActionInProgress(true);
+
+    const makingAmountLamports = (parseFloat(makingAmount) * Math.pow(10, MINT_DECIMALS[inputMint])).toString();
+    const takingAmountLamports = (parseFloat(takingAmount) * Math.pow(10, MINT_DECIMALS[outputMint])).toString();
+
+    if (!isMainnet || !publicKey || !signTransaction) {
+      // Devnet Simulation
+      const newOrder: TriggerOrder = {
+        id: new Date().toISOString(),
+        maker: 'simulated-user',
+        inputMint,
+        outputMint,
+        makingAmount: makingAmountLamports,
+        takingAmount: takingAmountLamports,
+        status: 'OPEN',
+      };
+      setOrders(prev => [newOrder, ...prev]);
+      toast({ title: 'Order Created (Simulated)', description: 'Your new limit order has been placed.' });
+      setIsCreating(false);
+      setIsActionInProgress(false);
+      return;
+    }
+
+    // Mainnet Logic
+    try {
+      const orderParams: TriggerOrderParams = {
+        maker: publicKey,
+        inputMint,
+        outputMint,
+        makingAmount: makingAmountLamports,
+        takingAmount: takingAmountLamports,
+      };
+
+      const { requestId, transaction: txBase64 } = await createTriggerOrder(orderParams, networkMode);
+      const transaction = VersionedTransaction.deserialize(Buffer.from(txBase64, 'base64'));
+      const signedTransaction = await signTransaction(transaction);
+      
+      await executeTriggerOrder({ requestId, signedTransaction }, networkMode);
+      
+      toast({ title: 'Limit Order Created!', description: 'Your order is now active on-chain.' });
+      await fetchOrders();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Order Creation Failed', description: (error as Error).message });
+    } finally {
+      setIsCreating(false);
+      setIsActionInProgress(false);
     }
   };
 
-  const handleCancelOrder = (orderId: string) => {
-    if (isMainnet) {
-      if (!connected) {
-        toast({
-          title: "Connect Wallet",
-          description: "Please connect your wallet to cancel an order on Mainnet.",
-          variant: "destructive",
-        });
-        return;
-      }
-      console.log("Preparing to cancel order on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
-      toast({
-        title: "Mainnet Action",
-        description: "Cancelling orders on Mainnet is not yet implemented.",
-      });
-    } else {
-      setOrders(prev => prev.filter(order => order.id !== orderId));
-      toast({
-        title: "Order Cancelled (Testnet)",
-        description: "Your limit order has been successfully cancelled.",
-        variant: "destructive"
-      });
+  const handleCancelOrder = async (order: TriggerOrder) => {
+    if (isCancelling || isActionInProgress) return;
+
+    setIsCancelling(order.id);
+    setIsActionInProgress(true);
+
+    if (!isMainnet || !publicKey || !signTransaction) {
+      // Devnet Simulation
+      setOrders(prev => prev.filter(o => o.id !== order.id));
+      toast({ title: 'Order Cancelled (Simulated)', variant: 'destructive' });
+      setIsCancelling(null);
+      setIsActionInProgress(false);
+      return;
+    }
+
+    // Mainnet Logic
+    try {
+      const { transaction: txBase64, requestId } = await cancelTriggerOrder({ orderId: order.id, maker: publicKey }, networkMode);
+      const transaction = VersionedTransaction.deserialize(Buffer.from(txBase64, 'base64'));
+      const signedTransaction = await signTransaction(transaction);
+
+      await executeTriggerOrder({ requestId, signedTransaction }, networkMode);
+      
+      toast({ title: 'Order Cancelled', description: 'Your limit order has been cancelled.' });
+      await fetchOrders();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Cancellation Failed', description: (error as Error).message });
+    } finally {
+      setIsCancelling(null);
+      setIsActionInProgress(false);
     }
   };
 
+  const getTokenSymbol = (mint: string) => {
+    if (mint === SOL_MINT) return 'SOL';
+    if (mint === USDC_MINT) return 'USDC';
+    if (mint === JUP_MINT) return 'JUP';
+    return mint.slice(0, 4) + '...';
+  }
 
   return (
     <motion.div
@@ -132,20 +210,20 @@ export function LimitOrder({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className={cn("flex flex-col w-full max-w-4xl", className)}>
+      <Card className="flex flex-col w-full max-w-4xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <ListOrdered className="w-6 h-6 text-accent" />
             Limit-Order Desk
           </CardTitle>
           <CardDescription>
-            Create and manage your limit orders.
+            Create and manage your limit orders. Jupiter's Trigger API is used for this feature.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md mb-4">
             <Info className="w-4 h-4" />
-            <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
+            <p>You are in <span className="font-bold">{isMainnet ? 'Mainnet Mode' : 'Testnet Mode'}</span>. {isMainnet ? 'Actions are live.' : 'Actions are simulated.'}</p>
           </div>
           <Tabs defaultValue="create">
             <TabsList className="grid w-full grid-cols-2">
@@ -158,62 +236,87 @@ export function LimitOrder({ className }: { className?: string }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="sell-token">You sell</Label>
-                      <Input id="sell-token" placeholder="Token" disabled={isActionDisabled} />
+                       <Select value={inputMint} onValueChange={setInputMint} disabled={isFormDisabled}>
+                        <SelectTrigger id="sell-token"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={SOL_MINT}>SOL</SelectItem>
+                          <SelectItem value={USDC_MINT}>USDC</SelectItem>
+                          <SelectItem value={JUP_MINT}>JUP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input id="sell-amount" value={makingAmount} onChange={e => setMakingAmount(e.target.value)} placeholder="Amount to sell" type="number" disabled={isFormDisabled} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="buy-token">You buy</Label>
-                      <Input id="buy-token" placeholder="Token" disabled={isActionDisabled}/>
+                       <Select value={outputMint} onValueChange={setOutputMint} disabled={isFormDisabled}>
+                        <SelectTrigger id="buy-token"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={SOL_MINT}>SOL</SelectItem>
+                          <SelectItem value={USDC_MINT}>USDC</SelectItem>
+                          <SelectItem value={JUP_MINT}>JUP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input id="buy-amount" value={takingAmount} onChange={e => setTakingAmount(e.target.value)} placeholder="Amount to buy" type="number" disabled={isFormDisabled} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="limit-price">Limit price</Label>
-                    <Input id="limit-price" placeholder="Price" type="number" disabled={isActionDisabled}/>
+                  <div className="text-sm text-muted-foreground text-center p-2 bg-secondary/50 rounded-md">
+                     Limit Price: {(parseFloat(takingAmount) / parseFloat(makingAmount) || 0).toFixed(6)} {getTokenSymbol(outputMint)} per {getTokenSymbol(inputMint)}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Amount</Label>
-                    <Input id="amount" placeholder="Amount to trade" type="number" disabled={isActionDisabled}/>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isActionDisabled}>
-                    {isActionInProgress && <Loader2 className="animate-spin" />}
-                    {isActionInProgress ? "Creating Order..." : "Create Limit Order"}
+                  <Button type="submit" className="w-full" disabled={isFormDisabled}>
+                    {isCreating ? <Loader2 className="animate-spin" /> : null}
+                    {isCreating ? "Creating Order..." : "Create Limit Order"}
                   </Button>
                 </div>
               </form>
             </TabsContent>
             <TabsContent value="manage" className="mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pair</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Filled</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.pair}</TableCell>
-                      <TableCell>
-                        <Badge variant={order.type === 'Buy' ? 'default' : 'destructive'} className={cn(
-                          'text-white',
-                          order.type === 'Buy' ? 'bg-emerald-600' : 'bg-red-600'
-                        )}>{order.type}</Badge>
-                      </TableCell>
-                      <TableCell>{order.price}</TableCell>
-                      <TableCell>{order.amount}</TableCell>
-                      <TableCell>{order.filled}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="destructive" size="sm" onClick={() => handleCancelOrder(order.id)} disabled={order.filled === '100%' || (isMainnet && !connected)}>
-                          Cancel
-                        </Button>
-                      </TableCell>
+              {isFetching ? <Skeleton className="h-40 w-full" /> : orders.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pair</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Limit Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.map((order) => {
+                      const makingDecimals = MINT_DECIMALS[order.inputMint] ?? 6;
+                      const takingDecimals = MINT_DECIMALS[order.outputMint] ?? 6;
+                      const makingAmountUi = parseFloat(order.makingAmount) / Math.pow(10, makingDecimals);
+                      const takingAmountUi = parseFloat(order.takingAmount) / Math.pow(10, takingDecimals);
+                      const price = takingAmountUi / makingAmountUi;
+                      
+                      return (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-medium">{getTokenSymbol(order.inputMint)}/{getTokenSymbol(order.outputMint)}</TableCell>
+                        <TableCell>
+                          <Badge variant={order.inputMint === USDC_MINT ? 'destructive' : 'default'} className={order.inputMint === USDC_MINT ? 'bg-red-600' : 'bg-emerald-600'}>
+                            {order.inputMint === USDC_MINT ? "Sell" : "Buy"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{makingAmountUi.toFixed(4)} {getTokenSymbol(order.inputMint)}</TableCell>
+                        <TableCell>{price.toFixed(6)}</TableCell>
+                        <TableCell><Badge variant="outline">{order.status}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          {order.status === 'OPEN' && (
+                            <Button variant="ghost" size="icon" onClick={() => handleCancelOrder(order)} disabled={!!isCancelling}>
+                              {isCancelling === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 text-destructive" />}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )})}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  {!connected ? "Connect your wallet to manage orders." : "You have no limit orders."}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
