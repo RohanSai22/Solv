@@ -1,5 +1,8 @@
+
 import type { NetworkMode } from "@/contexts/AppContext";
 import { getJupiterApiUrl as getBaseUrl } from "@/config";
+import type { WalletContextState } from "@solana/wallet-adapter-react";
+import { VersionedTransaction } from "@solana/web3.js";
 
 /**
  * Returns the correct Jupiter API base URL for the given network.
@@ -48,4 +51,68 @@ export async function getStrictTokenMints(): Promise<string[]> {
       'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',  // JUP
     ];
   }
+}
+
+// --- API Helper Functions for Swaps ---
+
+type GetSwapTransactionParams = {
+  inputMint: string;
+  outputMint: string;
+  amount: string;
+  userPublicKey: string;
+  networkMode: NetworkMode;
+}
+
+export async function getSwapTransaction({ inputMint, outputMint, amount, userPublicKey, networkMode }: GetSwapTransactionParams): Promise<VersionedTransaction> {
+  const jupiterUrl = getJupiterApiUrl(networkMode);
+  const priorityFee = getPriorityFee(networkMode);
+
+  const params = new URLSearchParams({
+    inputMint,
+    outputMint,
+    amount,
+    userPublicKey,
+    slippageBps: '50', // 0.5%
+    prioritizationFeeLamports: priorityFee.toString(),
+  });
+  
+  const response = await fetch(`${jupiterUrl}/order?${params.toString()}`);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to get swap order from Jupiter API.");
+  }
+  const { tx } = await response.json();
+
+  const transactionBuffer = Buffer.from(tx, 'base64');
+  return VersionedTransaction.deserialize(transactionBuffer);
+}
+
+export async function signTransaction(transaction: VersionedTransaction, wallet: WalletContextState): Promise<VersionedTransaction> {
+  if (!wallet.signTransaction) {
+    throw new Error("Wallet does not support signing transactions.");
+  }
+  return await wallet.signTransaction(transaction);
+}
+
+export async function executeTransaction(signedTransaction: VersionedTransaction, networkMode: NetworkMode): Promise<string> {
+    const jupiterUrl = getJupiterApiUrl(networkMode);
+    
+    const signedTxBase64 = Buffer.from(signedTransaction.serialize()).toString('base64');
+    
+    const response = await fetch(`${jupiterUrl}/execute`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transaction: signedTxBase64 }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to execute transaction via Jupiter API.");
+    }
+
+    const { signature } = await response.json();
+    return signature;
 }

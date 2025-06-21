@@ -23,12 +23,12 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useContext, useState, useEffect, useCallback } from "react";
 import { AppContext } from "@/contexts/AppContext";
+import type { WalletContextState } from "@solana/wallet-adapter-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
-import { getJupiterApiUrl, getPriorityFee } from "@/lib/jupiter-utils";
+import { getJupiterApiUrl, getPriorityFee, getSwapTransaction, executeTransaction, signTransaction } from "@/lib/jupiter-utils";
 import { getExplorerUrl } from "@/lib/solana-utils";
 import { Skeleton } from "./ui/skeleton";
-import type { WalletContextState } from "@solana/wallet-adapter-react";
 import type { VersionedTransaction } from "@solana/web3.js";
 
 // Define a type for the token data we expect from Jupiter's /balances
@@ -158,9 +158,15 @@ export function DustSweeper({ className }: { className?: string }) {
       const token = dustTokens[i];
       setSweepStatus(`Sweeping ${token.name}... (${i + 1}/${totalCount})`);
       try {
-        const tx = await getSwapTransaction(token.mint, outputTokenMint, token.rawAmount, publicKey.toBase58(), networkMode);
+        const tx = await getSwapTransaction({
+          inputMint: token.mint, 
+          outputMint: outputTokenMint, 
+          amount: token.rawAmount, 
+          userPublicKey: publicKey.toBase58(), 
+          networkMode: networkMode
+        });
         const signedTx = await signTransaction(tx, wallet);
-        const signature = await executeTransaction(signedTx);
+        const signature = await executeTransaction(signedTx, networkMode);
         lastTxSignature = signature;
         successCount++;
       } catch (error) {
@@ -179,7 +185,7 @@ export function DustSweeper({ className }: { className?: string }) {
     if (successCount > 0) {
       toast({
         title: "Sweep Complete!",
-        description: `Successfully swept ${successCount} of ${dustTokens.length} tokens.`,
+        description: `Successfully swept ${successCount} of ${totalCount} tokens.`,
         action: lastTxSignature ? (
           <a href={getExplorerUrl(lastTxSignature, networkMode)} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm">View Last Tx</Button>
@@ -282,60 +288,4 @@ export function DustSweeper({ className }: { className?: string }) {
       </Card>
     </motion.div>
   );
-}
-
-// --- API Helper Functions ---
-
-async function getSwapTransaction(inputMint: string, outputMint: string, amount: string, userPublicKey: string, networkMode: 'devnet' | 'mainnet-beta'): Promise<VersionedTransaction> {
-  const jupiterUrl = getJupiterApiUrl(networkMode);
-  const priorityFee = getPriorityFee(networkMode);
-
-  const params = new URLSearchParams({
-    inputMint,
-    outputMint,
-    amount,
-    userPublicKey,
-    slippageBps: '50', // 0.5%
-    prioritizationFeeLamports: priorityFee.toString(),
-  });
-  
-  const response = await fetch(`${jupiterUrl}/order?${params.toString()}`);
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || "Failed to get swap order from Jupiter API.");
-  }
-  const { tx } = await response.json();
-
-  const transactionBuffer = Buffer.from(tx, 'base64');
-  return VersionedTransaction.deserialize(transactionBuffer);
-}
-
-async function signTransaction(transaction: VersionedTransaction, wallet: WalletContextState): Promise<VersionedTransaction> {
-  if (!wallet.signTransaction) {
-    throw new Error("Wallet does not support signing transactions.");
-  }
-  return await wallet.signTransaction(transaction);
-}
-
-async function executeTransaction(signedTransaction: VersionedTransaction): Promise<string> {
-    const jupiterUrl = getJupiterApiUrl('mainnet-beta');
-    
-    const signedTxBase64 = Buffer.from(signedTransaction.serialize()).toString('base64');
-    
-    const response = await fetch(`${jupiterUrl}/execute`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ transaction: signedTxBase64 }),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to execute transaction via Jupiter API.");
-    }
-
-    const { signature } = await response.json();
-    return signature;
 }
