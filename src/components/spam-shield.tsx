@@ -11,34 +11,105 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Flame, ShieldAlert, Loader2, Info } from "lucide-react";
+import { Flame, ShieldAlert, Loader2, Info, Wallet } from "lucide-react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { useContext, useState, useMemo, useEffect } from "react";
+import { useContext, useState, useMemo, useEffect, useCallback } from "react";
 import { AppContext } from "@/contexts/AppContext";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "./ui/label";
-import { getJupiterApiUrl } from "@/lib/jupiter-utils";
+import { getStrictTokenMints } from "@/lib/jupiter-utils";
+import { getExplorerUrl } from "@/lib/solana-utils";
+import { Skeleton } from "./ui/skeleton";
+import {
+  Transaction,
+  LAMPORTS_PER_SOL,
+  ComputeBudgetProgram,
+  PublicKey
+} from "@solana/web3.js";
+import { createCloseAccountInstruction, getAssociatedTokenAddressSync } from "@solana/spl-token";
 
-const initialSpamTokens = [
-  { name: "FREESOL.io", icon: "https://placehold.co/32x32.png" },
-  { name: "ClaimWen.com", icon: "https://placehold.co/32x32.png" },
-  { name: "1000XGEM.xyz", icon: "https://placehold.co/32x32.png" },
-  { name: "USDC-Airdrop.net", icon: "https://placehold.co/32x32.png" },
-  { name: "SolanaGiveaway.org", icon: "https://placehold.co/32x32.png" },
+type SpamToken = {
+  name: string;
+  icon: string;
+  mint: string;
+  tokenAccount: string;
+};
+
+const initialSpamTokens: SpamToken[] = [
+  { name: "FREESOL.io", icon: "https://placehold.co/32x32.png", mint: '1', tokenAccount: '1' },
+  { name: "ClaimWen.com", icon: "https://placehold.co/32x32.png", mint: '2', tokenAccount: '2' },
+  { name: "1000XGEM.xyz", icon: "https://placehold.co/32x32.png", mint: '3', tokenAccount: '3' },
+  { name: "USDC-Airdrop.net", icon: "https://placehold.co/32x32.png", mint: '4', tokenAccount: '4' },
 ];
+
+const SOL_RECOVERY_PER_ACCOUNT = 0.00203928; // Rent for a token account
 
 export function SpamShield({ className }: { className?: string }) {
   const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
-  const { connected } = useWallet();
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const { connected, publicKey } = wallet;
   const { toast } = useToast();
   
-  const [spamTokens, setSpamTokens] = useState(initialSpamTokens);
+  const [spamTokens, setSpamTokens] = useState<SpamToken[]>(initialSpamTokens);
+  const [isBalancesLoading, setIsBalancesLoading] = useState(false);
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
 
   const isMainnet = networkMode === 'mainnet-beta';
-  const isActionDisabled = (isMainnet && !connected) || isActionInProgress || selectedTokens.size === 0;
+  const isActionDisabled = (isMainnet && !connected) || isActionInProgress || selectedTokens.size === 0 || spamTokens.length === 0;
+
+  const fetchSpamTokens = useCallback(async () => {
+    if (!isMainnet || !connected || !publicKey) {
+      setSpamTokens(initialSpamTokens);
+      return;
+    }
+
+    setIsBalancesLoading(true);
+    setSpamTokens([]);
+    try {
+      const [tokenAccounts, strictMints] = await Promise.all([
+        connection.getParsedTokenAccountsByOwner(publicKey, { programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") }),
+        getStrictTokenMints()
+      ]);
+
+      const strictMintSet = new Set(strictMints);
+
+      const potentialSpam = tokenAccounts.value
+        .map(acc => {
+          const parsedInfo = acc.account.data.parsed.info;
+          return {
+            mint: parsedInfo.mint,
+            tokenAccount: acc.pubkey.toBase58(),
+            balance: parsedInfo.tokenAmount.uiAmount,
+          };
+        })
+        .filter(token => !strictMintSet.has(token.mint));
+      
+      setSpamTokens(potentialSpam.map(t => ({
+        name: t.mint.slice(0, 12) + '...', // Truncate mint for display
+        icon: 'https://placehold.co/32x32.png',
+        mint: t.mint,
+        tokenAccount: t.tokenAccount,
+      })));
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error identifying spam",
+        description: "Could not scan your wallet for spam tokens.",
+        variant: "destructive",
+      });
+      setSpamTokens([]);
+    } finally {
+      setIsBalancesLoading(false);
+    }
+  }, [isMainnet, connected, publicKey, connection, toast]);
+
+  useEffect(() => {
+    fetchSpamTokens();
+  }, [fetchSpamTokens]);
 
   useEffect(() => {
     return () => {
@@ -46,13 +117,13 @@ export function SpamShield({ className }: { className?: string }) {
     };
   }, [setIsActionInProgress]);
 
-  const handleToggleSelect = (tokenName: string) => {
+  const handleToggleSelect = (tokenAccount: string) => {
     setSelectedTokens(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(tokenName)) {
-        newSet.delete(tokenName);
+      if (newSet.has(tokenAccount)) {
+        newSet.delete(tokenAccount);
       } else {
-        newSet.add(tokenName);
+        newSet.add(tokenAccount);
       }
       return newSet;
     });
@@ -60,42 +131,80 @@ export function SpamShield({ className }: { className?: string }) {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedTokens(new Set(spamTokens.map(t => t.name)));
+      setSelectedTokens(new Set(spamTokens.map(t => t.tokenAccount)));
     } else {
       setSelectedTokens(new Set());
     }
   };
 
-  const handleBurn = () => {
-    if (isMainnet) {
-      if (!connected) {
-        toast({
-          title: "Connect Wallet",
-          description: "Please connect your wallet to burn spam on Mainnet.",
-          variant: "destructive",
-        });
-        return;
-      }
-      // Mainnet logic would go here
-      console.log("Preparing to burn on Mainnet using Jupiter API:", getJupiterApiUrl(networkMode));
-      toast({
-        title: "Mainnet Action",
-        description: "Burning on Mainnet is not yet implemented.",
-      });
-    } else {
+  const handleBurn = async () => {
+    if (isActionDisabled) return;
+    setIsActionInProgress(true);
+
+    if (!isMainnet || !publicKey || !wallet.signAndSendTransaction) {
       // Devnet simulation
-      setIsActionInProgress(true);
+      const burnedCount = selectedTokens.size;
+      const solRecovered = (burnedCount * SOL_RECOVERY_PER_ACCOUNT).toFixed(5);
       setTimeout(() => {
-        const burnedCount = selectedTokens.size;
-        const solRecovered = (burnedCount * 0.0003).toFixed(4);
-        setSpamTokens(prev => prev.filter(t => !selectedTokens.has(t.name)));
+        setSpamTokens(prev => prev.filter(t => !selectedTokens.has(t.tokenAccount)));
         setSelectedTokens(new Set());
         setIsActionInProgress(false);
         toast({
           title: "Spam Burned! (Testnet)",
-          description: `You burned ${burnedCount} spam tokens and recovered ${solRecovered} SOL in rent fees.`,
+          description: `You burned ${burnedCount} spam tokens and recovered ${solRecovered} SOL.`,
         });
       }, 2000);
+      return;
+    }
+    
+    // Mainnet Logic
+    try {
+      const transaction = new Transaction();
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      // Add a priority fee
+      transaction.add(
+        ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: 1000, // A modest priority fee
+        })
+      );
+
+      for (const tokenAccount of selectedTokens) {
+        transaction.add(
+          createCloseAccountInstruction(
+            new PublicKey(tokenAccount), // Account to close
+            publicKey, // Destination for recovered SOL
+            publicKey  // Owner of the account
+          )
+        );
+      }
+
+      const signature = await wallet.signAndSendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature, 'confirmed');
+
+      toast({
+        title: "Spam Burned!",
+        description: `Burned ${selectedTokens.size} tokens. SOL recovered.`,
+        action: (
+          <a href={getExplorerUrl(signature, networkMode)} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm">View Tx</Button>
+          </a>
+        )
+      });
+      setSelectedTokens(new Set());
+      fetchSpamTokens();
+
+    } catch (error) {
+      console.error("Burn failed:", error);
+      toast({
+        title: "Burn Failed",
+        description: (error as Error).message || "The transaction was not confirmed.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsActionInProgress(false);
     }
   }
 
@@ -116,7 +225,7 @@ export function SpamShield({ className }: { className?: string }) {
             Spam-Burn Shield
           </CardTitle>
           <CardDescription>
-            Identify and burn unverified spam tokens to recover SOL.
+            Identify and burn unverified spam tokens to recover SOL rent fees.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
@@ -124,7 +233,13 @@ export function SpamShield({ className }: { className?: string }) {
             <Info className="w-4 h-4" />
             <p>You are in <span className="font-bold">{networkMode === 'devnet' ? 'Testnet Mode' : 'Mainnet Mode'}</span>. {networkMode === 'devnet' && 'Actions are simulated.'}</p>
           </div>
-          {spamTokens.length > 0 ? (
+          {isBalancesLoading ? (
+            <div className="space-y-3 h-48">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : spamTokens.length > 0 ? (
             <>
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
@@ -135,7 +250,7 @@ export function SpamShield({ className }: { className?: string }) {
                     id="select-all" 
                     checked={allSelected} 
                     onCheckedChange={(e) => handleSelectAll(e as boolean)}
-                    disabled={(isMainnet && !connected)}
+                    disabled={(isMainnet && !connected) || isActionInProgress}
                   />
                   <Label htmlFor="select-all" className="text-sm">Select All</Label>
                 </div>
@@ -144,14 +259,14 @@ export function SpamShield({ className }: { className?: string }) {
                 <div className="space-y-1">
                   {spamTokens.map((token) => (
                     <div
-                      key={token.name}
+                      key={token.tokenAccount}
                       className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary/50"
                     >
                       <Checkbox 
-                        id={token.name} 
-                        checked={selectedTokens.has(token.name)}
-                        onCheckedChange={() => handleToggleSelect(token.name)}
-                        disabled={(isMainnet && !connected)}
+                        id={token.tokenAccount} 
+                        checked={selectedTokens.has(token.tokenAccount)}
+                        onCheckedChange={() => handleToggleSelect(token.tokenAccount)}
+                        disabled={(isMainnet && !connected) || isActionInProgress}
                       />
                       <div className="flex items-center gap-3 flex-1">
                         <Image
@@ -163,8 +278,8 @@ export function SpamShield({ className }: { className?: string }) {
                           data-ai-hint="danger warning"
                         />
                         <label
-                          htmlFor={token.name}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
+                          htmlFor={token.tokenAccount}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate font-mono"
                         >
                           {token.name}
                         </label>
@@ -175,12 +290,16 @@ export function SpamShield({ className }: { className?: string }) {
               </ScrollArea>
             </>
           ) : (
-            <div className="flex items-center justify-center h-56 text-muted-foreground">
-              <p>No spam tokens found. Your wallet is clean!</p>
+            <div className="flex flex-col items-center justify-center h-56 text-muted-foreground text-center gap-4">
+               <Wallet className="w-12 h-12" />
+              <p>{connected ? "No spam tokens found to burn." : "Connect your wallet to scan for spam."}</p>
             </div>
           )}
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground text-center">
+            You can recover ~{(selectedTokens.size * SOL_RECOVERY_PER_ACCOUNT).toFixed(5)} SOL in rent fees by burning the selected tokens.
+          </p>
           <Button variant="destructive" className="w-full" disabled={isActionDisabled} onClick={handleBurn}>
             {isActionInProgress ? <Loader2 className="animate-spin" /> : <Flame className="w-4 h-4" />}
             {isActionInProgress ? "Burning..." : `Burn ${selectedTokens.size} Selected Spam`}

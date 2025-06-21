@@ -23,3 +23,29 @@ export function getPriorityFee(network: NetworkMode): 'auto' | number {
   // On mainnet, 'auto' is a safe default for Jupiter to handle it.
   return 'auto';
 }
+
+
+/**
+ * Fetches Jupiter's strict token list.
+ * This list contains tokens that are verified and considered safe.
+ * @returns An array of token mint addresses.
+ */
+export async function getStrictTokenMints(): Promise<string[]> {
+  try {
+    // Note: The base URL for this specific endpoint is different from the trade APIs
+    const response = await fetch('https://token.jup.ag/strict');
+    if (!response.ok) {
+      throw new Error('Failed to fetch strict token list');
+    }
+    const tokens: { address: string }[] = await response.json();
+    return tokens.map(t => t.address);
+  } catch (error) {
+    console.error("Error fetching Jupiter's strict token list:", error);
+    // Return a default list of common tokens as a fallback
+    return [
+      'So11111111111111111111111111111111111111112', // SOL
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',  // JUP
+    ];
+  }
+}
