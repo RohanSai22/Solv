@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -48,10 +49,10 @@ const DUST_THRESHOLD_USD = 0.5;
 
 // Initial mock data for Devnet
 const initialDustTokens = [
-  { name: "LOWB", amount: "0.0012", icon: "https://placehold.co/32x32.png", mint: "lowb-mint-addr" },
-  { name: "TINY", amount: "0.0005", icon: "https://placehold.co/32x32.png", mint: "tiny-mint-addr" },
-  { name: "屑", amount: "1.53", icon: "https://placehold.co/32x32.png", mint: "kuzu-mint-addr" },
-  { name: "PEANUT", amount: "10.2", icon: "https://placehold.co/32x32.png", mint: "peanut-mint-addr" },
+  { name: "LOWB", amount: "0.0012", icon: "https://placehold.co/32x32.png", mint: "lowb-mint-addr", rawAmount: "120" },
+  { name: "TINY", amount: "0.0005", icon: "https://placehold.co/32x32.png", mint: "tiny-mint-addr", rawAmount: "50" },
+  { name: "屑", amount: "1.53", icon: "https://placehold.co/32x32.png", mint: "kuzu-mint-addr", rawAmount: "1530" },
+  { name: "PEANUT", amount: "10.2", icon: "https://placehold.co/32x32.png", mint: "peanut-mint-addr", rawAmount: "10200" },
 ];
 
 export function DustSweeper({ className }: { className?: string }) {
@@ -63,17 +64,19 @@ export function DustSweeper({ className }: { className?: string }) {
   const [dustTokens, setDustTokens] = useState<any[]>(initialDustTokens);
   const [isBalancesLoading, setIsBalancesLoading] = useState(false);
   const [outputToken, setOutputToken] = useState('SOL');
+  const [sweepStatus, setSweepStatus] = useState('');
 
   const isMainnet = networkMode === 'mainnet-beta';
   const isActionDisabled = (isMainnet && !connected) || isActionInProgress || dustTokens.length === 0;
 
   const fetchBalances = useCallback(async () => {
     if (!isMainnet || !connected || !publicKey) {
-      setDustTokens(initialDustTokens); // Reset to mock data if not on mainnet/connected
+      setDustTokens(initialDustTokens);
       return;
     }
 
     setIsBalancesLoading(true);
+    setDustTokens([]);
     try {
       const jupiterUrl = getJupiterApiUrl(networkMode);
       const response = await fetch(`${jupiterUrl}/balances/${publicKey.toBase58()}`);
@@ -123,21 +126,22 @@ export function DustSweeper({ className }: { className?: string }) {
 
     setIsActionInProgress(true);
 
-    // --- Devnet Simulation ---
     if (!isMainnet) {
-      setTimeout(() => {
-        const sweptCount = dustTokens.length;
-        setDustTokens([]);
-        setIsActionInProgress(false);
-        toast({
-          title: "Dust Swept! (Testnet)",
-          description: `You successfully converted ${sweptCount} tokens and earned some ${outputToken}.`,
-        });
-      }, 2000);
+      const totalCount = dustTokens.length;
+      for (let i = 0; i < totalCount; i++) {
+        setSweepStatus(`Sweeping ${dustTokens[i].name}... (${i + 1}/${totalCount})`);
+        await new Promise(resolve => setTimeout(resolve, 700));
+      }
+      setDustTokens([]);
+      setSweepStatus('');
+      setIsActionInProgress(false);
+      toast({
+        title: "Dust Swept! (Testnet)",
+        description: `You successfully converted ${totalCount} tokens and earned some ${outputToken}.`,
+      });
       return;
     }
 
-    // --- Mainnet Logic ---
     if (!connected || !publicKey) {
         toast({ title: "Wallet not connected", variant: "destructive" });
         setIsActionInProgress(false);
@@ -148,8 +152,11 @@ export function DustSweeper({ className }: { className?: string }) {
                             outputToken === 'USDC' ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' : 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
     let successCount = 0;
     let lastTxSignature = '';
+    const totalCount = dustTokens.length;
 
-    for (const token of dustTokens) {
+    for (let i = 0; i < totalCount; i++) {
+      const token = dustTokens[i];
+      setSweepStatus(`Sweeping ${token.name}... (${i + 1}/${totalCount})`);
       try {
         const tx = await getSwapTransaction(token.mint, outputTokenMint, token.rawAmount, publicKey.toBase58(), networkMode);
         const signedTx = await signTransaction(tx, wallet);
@@ -163,10 +170,11 @@ export function DustSweeper({ className }: { className?: string }) {
             description: (error as Error).message || "An unknown error occurred.",
             variant: "destructive",
         });
-        // Stop on first failure
         break; 
       }
     }
+
+    setSweepStatus('');
 
     if (successCount > 0) {
       toast({
@@ -180,7 +188,6 @@ export function DustSweeper({ className }: { className?: string }) {
       });
     }
 
-    // Refetch balances to show updated state
     await fetchBalances();
     setIsActionInProgress(false);
   };
@@ -231,7 +238,7 @@ export function DustSweeper({ className }: { className?: string }) {
                           height={32}
                           className="rounded-full bg-muted"
                           data-ai-hint="crypto token"
-                          unoptimized // Avoids next/image optimization for external URLs
+                          unoptimized
                         />
                         <div>
                           <p className="font-bold">{token.name}</p>
@@ -251,20 +258,26 @@ export function DustSweeper({ className }: { className?: string }) {
           )}
         </CardContent>
         <CardFooter className="flex-col sm:flex-row gap-2">
-          <Select defaultValue={outputToken} onValueChange={setOutputToken} disabled={isActionDisabled}>
-            <SelectTrigger>
-              <SelectValue placeholder="Convert to" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="SOL">Solana (SOL)</SelectItem>
-              <SelectItem value="JUP">Jupiter (JUP)</SelectItem>
-              <SelectItem value="USDC">USDC</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button className="w-full sm:w-auto" disabled={isActionDisabled} onClick={handleSweep}>
-            {isActionInProgress ? <Loader2 className="animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {isActionInProgress ? "Sweeping..." : "Sweep All"}
-          </Button>
+          {isActionInProgress ? (
+             <div className="text-sm text-center w-full">{sweepStatus}</div>
+          ) : (
+            <>
+            <Select defaultValue={outputToken} onValueChange={setOutputToken} disabled={isActionDisabled}>
+              <SelectTrigger>
+                <SelectValue placeholder="Convert to" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SOL">Solana (SOL)</SelectItem>
+                <SelectItem value="JUP">Jupiter (JUP)</SelectItem>
+                <SelectItem value="USDC">USDC</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button className="w-full sm:w-auto" disabled={isActionDisabled} onClick={handleSweep}>
+              <Sparkles className="w-4 h-4" />
+              Sweep All
+            </Button>
+            </>
+          )}
         </CardFooter>
       </Card>
     </motion.div>
@@ -294,7 +307,6 @@ async function getSwapTransaction(inputMint: string, outputMint: string, amount:
   }
   const { tx } = await response.json();
 
-  // The transaction is returned as a base64 string, so we need to deserialize it
   const transactionBuffer = Buffer.from(tx, 'base64');
   return VersionedTransaction.deserialize(transactionBuffer);
 }
@@ -307,9 +319,8 @@ async function signTransaction(transaction: VersionedTransaction, wallet: Wallet
 }
 
 async function executeTransaction(signedTransaction: VersionedTransaction): Promise<string> {
-    const jupiterUrl = getJupiterApiUrl('mainnet-beta'); // Execute always on mainnet endpoint
+    const jupiterUrl = getJupiterApiUrl('mainnet-beta');
     
-    // Serialize the signed transaction to base64
     const signedTxBase64 = Buffer.from(signedTransaction.serialize()).toString('base64');
     
     const response = await fetch(`${jupiterUrl}/execute`, {
