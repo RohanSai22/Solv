@@ -1,0 +1,60 @@
+
+README.md: The initial README file for the Firebase Studio project.
+apphosting.yaml: Firebase App Hosting configuration, used to manage server settings like instance scaling.
+components.json: Configuration file for shadcn/ui, specifying styles, component paths, and aliases.
+next.config.ts: Configuration file for the Next.js framework, including build options and image source policies.
+package.json: Lists the project's dependencies, scripts, and general metadata.
+src/ai/dev.ts: A development file used to import and register Genkit flows for testing and development.
+src/ai/genkit.ts: Initializes and configures the Genkit AI instance, setting up plugins like Google AI.
+src/app/globals.css: The global stylesheet for the application, defining base styles and CSS variables for the theme.
+src/app/layout.tsx: The root layout component for the Next.js app, which defines the main HTML structure and includes global providers.
+src/app/page.tsx: The main entry point component for the application's UI, which renders the currently active feature.
+src/components/AppProviders.tsx: A component that wraps the entire application to provide necessary contexts, such as Solana wallet and app state.
+src/components/Welcome.tsx: The component displayed when no feature is selected, welcoming the user to the app.
+src/components/dca-wizard.tsx: The UI component for the Dollar-Cost Averaging feature, allowing users to schedule token purchases.
+src/components/dust-sweeper.tsx: The UI component for the Dust Sweeper, which consolidates small token balances into a useful asset.
+src/components/header.tsx: The application's main header, containing navigation, the logo, and wallet connection controls.
+src/components/icons.tsx: A collection of custom SVG icons exported as React components for use throughout the app.
+src/components/limit-order.tsx: The UI component for the Limit Order feature, allowing users to place and manage orders.
+src/components/pro-trader.tsx: The UI component for the Pro Trader feature, which presents premium, upcoming functionalities.
+src/components/sol-refuel.tsx: The UI component for the SOL Refuel feature, enabling users to swap tokens for SOL to cover gas fees.
+src/components/spam-shield.tsx: The UI component for the Spam Shield, allowing users to burn spam tokens and recover SOL.
+src/components/ui/accordion.tsx: A pre-built UI component for creating collapsible content sections.
+src/components/ui/alert-dialog.tsx: A pre-built UI component for showing modal dialogs that require user confirmation.
+src/components/ui/alert.tsx: A pre-built UI component for displaying prominent, contextual messages.
+src/components/ui/avatar.tsx: A pre-built UI component for displaying user avatars or profile images.
+src/components/ui/badge.tsx: A pre-built UI component for displaying small status indicators or labels.
+src/components/ui/button.tsx: A versatile, pre-built button component with multiple style variants.
+src/components/ui/calendar.tsx: A pre-built UI component for selecting dates from a calendar view.
+src/components/ui/card.tsx: A pre-built UI component for displaying content within a styled container with a header, content, and footer.
+src/components/ui/chart.tsx: A pre-built wrapper around Recharts for creating responsive charts and graphs.
+src/components/ui/checkbox.tsx: A pre-built UI component that allows users to select one or more options.
+src/components/ui/dialog.tsx: A pre-built UI component for creating modal dialog windows.
+src/components/ui/dropdown-menu.tsx: A pre-built UI component for creating menus that appear when a user clicks a trigger.
+src/components/ui/form.tsx: A collection of components to facilitate building accessible forms with React Hook Form.
+src/components/ui/input.tsx: A pre-built UI component for basic text input fields.
+src/components/ui/label.tsx: A pre-built UI component for adding accessible labels to form elements.
+src/components/ui/menubar.tsx: A pre-built UI component for creating a top-level menu bar.
+src/components/ui/popover.tsx: A pre-built UI component for displaying floating content relative to a trigger element.
+src/components/ui/progress.tsx: A pre-built UI component for indicating the completion progress of a task.
+src/components/ui/radio-group.tsx: A pre-built UI component that allows users to select a single option from a set.
+src/components/ui/scroll-area.tsx: A pre-built UI component for creating scrollable content areas with custom scrollbars.
+src/components/ui/select.tsx: A pre-built UI component for creating dropdown select menus.
+src/components/ui/separator.tsx: A pre-built UI component for rendering a horizontal or vertical dividing line.
+src/components/ui/sheet.tsx: A pre-built UI component for creating slide-out panels from any side of the screen.
+src/components/ui/sidebar.tsx: A custom, complex sidebar component providing a collapsible navigation panel.
+src/components/ui/skeleton.tsx: A pre-built UI component used to show a placeholder preview of content while it is loading.
+src/components/ui/slider.tsx: A pre-built UI component that allows users to select a value from a continuous range.
+src/components/ui/switch.tsx: A pre-built UI component for creating a two-state toggle switch.
+src/components/ui/table.tsx: A collection of pre-built components for creating accessible and styled data tables.
+src/components/ui/tabs.tsx: A pre-built UI component for organizing content into different sections that can be switched between.
+src/components/ui/textarea.tsx: A pre-built UI component for multi-line text input.
+src/components/ui/toast.tsx: A pre-built UI component for displaying small, non-intrusive notifications.
+src/components/ui/toaster.tsx: A manager component that renders and orchestrates toast notifications in the app.
+src/components/ui/tooltip.tsx: A pre-built UI component for showing a small informational pop-up on hover.
+src/contexts/AppContext.tsx: Defines and provides a React Context for sharing global state like network mode and the active view.
+src/hooks/use-mobile.tsx: A custom React hook that detects if the application is being viewed on a mobile-sized screen.
+src/hooks/use-toast.ts: A custom React hook that provides a function to trigger and manage toast notifications.
+src/lib/utils.ts: A utility file containing helper functions, most notably `cn` for merging Tailwind CSS classes.
+tailwind.config.ts: The configuration file for Tailwind CSS, defining the design system like colors, fonts, and spacing.
+tsconfig.json: The TypeScript compiler configuration file for the project, specifying rules and settings for type checking.
