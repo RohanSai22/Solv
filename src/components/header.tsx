@@ -6,11 +6,12 @@ import { Icons } from "@/components/icons";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { AppContext, AppView } from '@/contexts/AppContext';
+import { AppContext, AppView, Chain } from '@/contexts/AppContext';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { motion } from 'framer-motion';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
-import { Menu } from 'lucide-react';
+import { Menu, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const navItems: { view: AppView; label: string }[] = [
   { view: 'dust-sweeper', label: 'Dust Sweeper' },
@@ -21,8 +22,14 @@ const navItems: { view: AppView; label: string }[] = [
   { view: 'pro-trader', label: 'Pro Trader' },
 ];
 
+const chainLabels: Record<Chain, string> = {
+  solana: "Solana",
+  ethereum: "Ethereum",
+  polygon: "Polygon",
+};
+
 export default function Header() {
-  const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress } = useContext(AppContext);
+  const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress, chain, setChain } = useContext(AppContext);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -57,6 +64,20 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center justify-end space-x-2 md:space-x-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="hidden md:flex">
+                {chainLabels[chain]}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setChain('ethereum')} disabled>Ethereum (Soon)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setChain('polygon')} disabled>Polygon (Soon)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <div className="hidden md:flex items-center space-x-2">
             <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
             <Switch 
@@ -69,7 +90,8 @@ export default function Header() {
           </div>
           <Separator orientation="vertical" className="h-6 hidden md:block" />
           <div className="hidden md:block">
-            <WalletMultiButton style={{height: '36px', fontSize: '14px'}} />
+             {chain === 'solana' && <WalletMultiButton style={{height: '36px', fontSize: '14px'}} />}
+             {chain !== 'solana' && <Button disabled size="sm">Connect EVM Wallet</Button>}
           </div>
 
           <div className="md:hidden">
@@ -116,7 +138,8 @@ export default function Header() {
                       />
                       <Label htmlFor="network-mode-mobile" className="text-sm">Mainnet</Label>
                     </div>
-                    <WalletMultiButton style={{ width: '100%' }} />
+                     {chain === 'solana' && <WalletMultiButton style={{ width: '100%' }} />}
+                     {chain !== 'solana' && <Button disabled className="w-full">Connect EVM Wallet</Button>}
                   </div>
                 </div>
               </SheetContent>
