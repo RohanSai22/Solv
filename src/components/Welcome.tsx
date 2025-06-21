@@ -13,7 +13,7 @@ export function Welcome({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="w-full max-w-lg text-center">
+      <Card className="w-full max-w-xl text-center">
         <CardHeader>
           <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit">
             <Icons.logo className="h-12 w-12 text-primary" />

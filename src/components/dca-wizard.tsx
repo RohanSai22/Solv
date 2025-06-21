@@ -60,7 +60,7 @@ export function DcaWizard({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-lg">
+      <Card className="flex flex-col w-full max-w-xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <CalendarClock className="w-6 h-6 text-accent" />

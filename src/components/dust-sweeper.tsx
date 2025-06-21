@@ -66,7 +66,7 @@ export function DustSweeper({ className }: { className?: string }) {
         setIsSweeping(false);
         toast({
           title: "Dust Swept!",
-          description: `You successfully converted ${sweptCount} tokens into something more useful.`,
+          description: `You successfully converted ${sweptCount} tokens and earned 0.05 SOL.`,
         });
       }, 2000);
     } else {
@@ -87,7 +87,7 @@ export function DustSweeper({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-lg">
+      <Card className="flex flex-col w-full max-w-xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-accent" />

@@ -37,7 +37,7 @@ export function ProTrader({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-lg border-2 border-amber-400 shadow-amber-400/20 shadow-lg">
+      <Card className="flex flex-col w-full max-w-xl border-2 border-amber-400 shadow-amber-400/20 shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2 text-amber-400">
             <Star className="w-6 h-6" />

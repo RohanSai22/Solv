@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { AppContext, AppView } from '@/contexts/AppContext';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { motion } from 'framer-motion';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Menu } from 'lucide-react';
 
 const navItems: { view: AppView; label: string }[] = [
   { view: 'dust-sweeper', label: 'Dust Sweeper' },
@@ -54,18 +56,70 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex flex-1 items-center justify-end space-x-2 md:space-x-4">
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="network-mode" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
+        <div className="flex items-center justify-end space-x-2 md:space-x-4">
+          <div className="hidden md:flex items-center space-x-2">
+            <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
             <Switch 
-              id="network-mode" 
+              id="network-mode-desktop" 
               checked={networkMode === 'mainnet-beta'}
               onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
             />
-            <Label htmlFor="network-mode" className="text-xs sm:text-sm">Mainnet</Label>
+            <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm">Mainnet</Label>
           </div>
-          <Separator orientation="vertical" className="h-6" />
-          <WalletMultiButton style={{height: '36px', fontSize: '14px'}} />
+          <Separator orientation="vertical" className="h-6 hidden md:block" />
+          <div className="hidden md:block">
+            <WalletMultiButton style={{height: '36px', fontSize: '14px'}} />
+          </div>
+
+          <div className="md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full max-w-xs p-0">
+                <div className="flex flex-col h-full">
+                  <div className="p-4 border-b">
+                    <SheetClose asChild>
+                      <button onClick={() => setActiveView(null)} className="flex items-center gap-2">
+                        <Icons.logo className="h-8 w-8 text-primary" />
+                        <h1 className="text-2xl font-bold font-headline tracking-tighter">
+                          Solv
+                        </h1>
+                      </button>
+                    </SheetClose>
+                  </div>
+                  <nav className="flex-grow p-4 space-y-2">
+                    {navItems.map(item => (
+                      <SheetClose asChild key={item.view}>
+                        <Button
+                          variant={activeView === item.view ? 'secondary': 'ghost'}
+                          className="w-full justify-start"
+                          onClick={() => setActiveView(item.view)}
+                        >
+                          {item.label}
+                        </Button>
+                      </SheetClose>
+                    ))}
+                  </nav>
+                  <div className="p-4 border-t space-y-4">
+                    <div className="flex items-center justify-center space-x-2">
+                      <Label htmlFor="network-mode-mobile" className="text-sm text-muted-foreground">Testnet</Label>
+                      <Switch 
+                        id="network-mode-mobile" 
+                        checked={networkMode === 'mainnet-beta'}
+                        onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
+                      />
+                      <Label htmlFor="network-mode-mobile" className="text-sm">Mainnet</Label>
+                    </div>
+                    <WalletMultiButton style={{ width: '100%' }} />
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </div>
     </header>

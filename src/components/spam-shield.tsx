@@ -64,12 +64,13 @@ export function SpamShield({ className }: { className?: string }) {
       setIsBurning(true);
       setTimeout(() => {
         const burnedCount = selectedTokens.size;
+        const solRecovered = (burnedCount * 0.0003).toFixed(4);
         setSpamTokens(prev => prev.filter(t => !selectedTokens.has(t.name)));
         setSelectedTokens(new Set());
         setIsBurning(false);
         toast({
           title: "Spam Burned!",
-          description: `You burned ${burnedCount} spam tokens and recovered 0.0015 SOL in rent fees.`,
+          description: `You burned ${burnedCount} spam tokens and recovered ${solRecovered} SOL in rent fees.`,
         });
       }, 2000);
     } else {
@@ -91,7 +92,7 @@ export function SpamShield({ className }: { className?: string }) {
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="flex flex-col w-full max-w-lg">
+      <Card className="flex flex-col w-full max-w-xl">
         <CardHeader>
           <CardTitle className="font-headline flex items-center gap-2">
             <ShieldAlert className="w-6 h-6 text-primary" />
@@ -112,7 +113,7 @@ export function SpamShield({ className }: { className?: string }) {
                   <Checkbox 
                     id="select-all" 
                     checked={allSelected} 
-                    onCheckedChange={handleSelectAll} 
+                    onCheckedChange={(e) => handleSelectAll(e as boolean)}
                     disabled={(networkMode === 'mainnet-beta' && !connected)}
                   />
                   <Label htmlFor="select-all" className="text-sm">Select All</Label>

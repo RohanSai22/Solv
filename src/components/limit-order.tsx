@@ -127,7 +127,7 @@ export function LimitOrder({ className }: { className?: string }) {
             <TabsContent value="create" className="mt-4">
               <form onSubmit={handleCreateOrder}>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="sell-token">You sell</Label>
                       <Input id="sell-token" placeholder="Token" disabled={isActionDisabled} />
