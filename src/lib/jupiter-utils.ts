@@ -2,7 +2,7 @@
 import type { NetworkMode } from "@/contexts/AppContext";
 import { getJupiterApiUrl as getBaseUrl } from "@/config";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
-import { VersionedTransaction } from "@solana/web3.js";
+import { VersionedTransaction, type PublicKey } from "@solana/web3.js";
 
 /**
  * Returns the correct Jupiter API base URL for the given network.
@@ -115,4 +115,122 @@ export async function executeTransaction(signedTransaction: VersionedTransaction
 
     const { signature } = await response.json();
     return signature;
+}
+
+
+// --- API Helper Functions for Recurring Orders ---
+
+export type RecurringOrderParams = {
+  type: 'time';
+  interval: 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH';
+  intervalValue: number;
+  startDate: number; // Unix timestamp
+  maxNumberOfExecutions: number;
+};
+
+export type RecurringOrder = {
+  id: string; // This is the requestId
+  user: string;
+  inputMint: string;
+  outputMint: string;
+  inAmount: string;
+  outAmount: string;
+  status: 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED' | 'PENDING';
+  nextExecutionTime: string; // ISO 8601 date string
+  lastExecution: {
+    time: string;
+    status: string;
+    tx: string;
+  } | null;
+  params: RecurringOrderParams;
+};
+
+type CreateRecurringOrderResponse = {
+  requestId: string;
+  transaction: string; // base64
+};
+
+export async function createRecurringOrder({
+  user, inputMint, outputMint, inAmount, params, networkMode
+}: {
+  user: PublicKey,
+  inputMint: string,
+  outputMint: string,
+  inAmount: string, // in lamports
+  params: RecurringOrderParams,
+  networkMode: NetworkMode
+}): Promise<CreateRecurringOrderResponse> {
+  const jupiterUrl = getJupiterApiUrl(networkMode);
+  const response = await fetch(`${jupiterUrl}/recurring/v1/createOrder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user: user.toBase58(),
+      inputMint,
+      outputMint,
+      inAmount,
+      params,
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to create recurring order.");
+  }
+  return response.json();
+}
+
+export async function executeRecurringOrder({
+  requestId, signedTransaction, networkMode
+}: {
+  requestId: string,
+  signedTransaction: VersionedTransaction,
+  networkMode: NetworkMode
+}) {
+  const jupiterUrl = getJupiterApiUrl(networkMode);
+  const signedTxBase64 = Buffer.from(signedTransaction.serialize()).toString('base64');
+  
+  const response = await fetch(`${jupiterUrl}/recurring/v1/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, signedTransaction: signedTxBase64 }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to execute recurring order.");
+  }
+  return response.json();
+}
+
+export async function getRecurringOrders(user: PublicKey, networkMode: NetworkMode): Promise<RecurringOrder[]> {
+  const jupiterUrl = getJupiterApiUrl(networkMode);
+  const response = await fetch(`${jupiterUrl}/recurring/v1/getRecurringOrders?user=${user.toBase58()}`);
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to fetch recurring orders.");
+  }
+  return response.json();
+}
+
+export async function cancelRecurringOrder({
+    requestId, user, networkMode
+  }: {
+  requestId: string,
+  user: PublicKey,
+  networkMode: NetworkMode
+}) {
+  const jupiterUrl = getJupiterApiUrl(networkMode);
+  const response = await fetch(`${jupiterUrl}/recurring/v1/cancelOrder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, user: user.toBase58() }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to cancel recurring order.");
+  }
+  return response.json();
 }
