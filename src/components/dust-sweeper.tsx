@@ -91,8 +91,8 @@ export function DustSweeper({ className }: { className?: string }) {
             return;
         }
         try {
-            const jupiterUrl = getJupiterApiUrl(networkMode);
-            const response = await fetch(`${jupiterUrl}/balances/${publicKey.toBase58()}`);
+            // Jupiter's balance API is separate from the trade/recurring APIs
+            const response = await fetch(`https://cache.jup.ag/balances/${publicKey.toBase58()}`);
             if (!response.ok) throw new Error('Failed to fetch balances.');
             
             const allTokens: TokenBalance[] = await response.json();
