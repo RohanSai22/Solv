@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@solana/wallet-adapter-react-ui/styles.css";
+
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
+import { AppProviders } from "@/components/AppProviders";
 
 export const metadata: Metadata = {
   title: "Solv: Wallet Health Hub",
@@ -21,8 +24,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased", "min-h-screen")}>
-        {children}
-        <Toaster />
+        <AppProviders>
+          {children}
+          <Toaster />
+        </AppProviders>
       </body>
     </html>
   );

@@ -22,6 +22,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { useContext } from "react";
+import { AppContext } from "@/contexts/AppContext";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 const orders = [
   { pair: "SOL/USDC", type: "Buy", price: "145.50", amount: "10.0", filled: "20%" },
@@ -30,82 +34,97 @@ const orders = [
 ];
 
 export function LimitOrder({ className }: { className?: string }) {
+  const { networkMode } = useContext(AppContext);
+  const { connected } = useWallet();
+  const isActionDisabled = networkMode === 'mainnet-beta' && !connected;
+
   return (
-    <Card className={cn("flex flex-col", className)}>
-      <CardHeader>
-        <CardTitle className="font-headline flex items-center gap-2">
-          <ListOrdered className="w-6 h-6 text-accent" />
-          Limit-Order Desk
-        </CardTitle>
-        <CardDescription>
-          Create and manage your limit orders.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-grow">
-        <Tabs defaultValue="create">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="create">Create Order</TabsTrigger>
-            <TabsTrigger value="manage">Manage Orders</TabsTrigger>
-          </TabsList>
-          <TabsContent value="create" className="mt-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sell-token">You sell</Label>
-                  <Input id="sell-token" placeholder="Token" />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className={className}
+    >
+      <Card className={cn("flex flex-col w-full max-w-2xl", className)}>
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center gap-2">
+            <ListOrdered className="w-6 h-6 text-accent" />
+            Limit-Order Desk
+          </CardTitle>
+          <CardDescription>
+            Create and manage your limit orders.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex-grow">
+          <Tabs defaultValue="create">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="create">Create Order</TabsTrigger>
+              <TabsTrigger value="manage">Manage Orders</TabsTrigger>
+            </TabsList>
+            <TabsContent value="create" className="mt-4">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sell-token">You sell</Label>
+                    <Input id="sell-token" placeholder="Token" disabled={isActionDisabled} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="buy-token">You buy</Label>
+                    <Input id="buy-token" placeholder="Token" disabled={isActionDisabled}/>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="buy-token">You buy</Label>
-                  <Input id="buy-token" placeholder="Token" />
+                  <Label htmlFor="limit-price">Limit price</Label>
+                  <Input id="limit-price" placeholder="Price" type="number" disabled={isActionDisabled}/>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount</Label>
+                  <Input id="amount" placeholder="Amount to trade" type="number" disabled={isActionDisabled}/>
+                </div>
+                <Button className="w-full" disabled={isActionDisabled}>
+                  Create Limit Order
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="limit-price">Limit price</Label>
-                <Input id="limit-price" placeholder="Price" type="number" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
-                <Input id="amount" placeholder="Amount to trade" type="number" />
-              </div>
-              <Button className="w-full">
-                Create Limit Order
-              </Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="manage" className="mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pair</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Filled</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.pair + order.price}>
-                    <TableCell className="font-medium">{order.pair}</TableCell>
-                    <TableCell>
-                      <Badge variant={order.type === 'Buy' ? 'default' : 'secondary'} className={order.type === 'Buy' ? 'bg-green-600' : 'bg-red-600'}>{order.type}</Badge>
-                    </TableCell>
-                    <TableCell>{order.price}</TableCell>
-                    <TableCell>{order.amount}</TableCell>
-                    <TableCell>{order.filled}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="destructive" size="sm" disabled={order.filled === '100%'}>
-                        Cancel
-                      </Button>
-                    </TableCell>
+            </TabsContent>
+            <TabsContent value="manage" className="mt-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pair</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Filled</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {orders.map((order) => (
+                    <TableRow key={order.pair + order.price}>
+                      <TableCell className="font-medium">{order.pair}</TableCell>
+                      <TableCell>
+                        <Badge variant={order.type === 'Buy' ? 'default' : 'destructive'} className={cn(
+                          'text-white',
+                          order.type === 'Buy' ? 'bg-emerald-600' : 'bg-red-600'
+                        )}>{order.type}</Badge>
+                      </TableCell>
+                      <TableCell>{order.price}</TableCell>
+                      <TableCell>{order.amount}</TableCell>
+                      <TableCell>{order.filled}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="destructive" size="sm" disabled={order.filled === '100%' || isActionDisabled}>
+                          Cancel
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
