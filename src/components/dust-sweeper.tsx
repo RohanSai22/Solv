@@ -213,7 +213,7 @@ export function DustSweeper({ className }: { className?: string }) {
             Dust Sweeper
           </CardTitle>
           <CardDescription>
-            Consolidate small token balances from your connected wallets into a useful asset.
+            Consolidate small token balances from Solana and other connected wallets into a useful asset.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
@@ -289,3 +289,5 @@ export function DustSweeper({ className }: { className?: string }) {
     </motion.div>
   );
 }
+
+    
