@@ -104,7 +104,7 @@ export default function Header() {
             <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
             <Switch 
               id="network-mode-desktop"
-              disabled={isActionInProgress}
+              disabled={isActionInProgress || chain !== 'solana'}
               checked={networkMode === 'mainnet-beta'}
               onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
             />
@@ -167,7 +167,7 @@ export default function Header() {
                       <Label htmlFor="network-mode-mobile" className="text-sm text-muted-foreground">Testnet</Label>
                       <Switch 
                         id="network-mode-mobile"
-                        disabled={isActionInProgress}
+                        disabled={isActionInProgress || chain !== 'solana'}
                         checked={networkMode === 'mainnet-beta'}
                         onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
                       />

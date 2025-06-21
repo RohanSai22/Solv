@@ -20,9 +20,10 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
 const queryClient = new QueryClient();
 
+// This project ID is a placeholder. In a real app, you would get one from WalletConnect Cloud.
 const wagmiConfig = getDefaultConfig({
   appName: 'Solv Wallet Health Hub',
-  projectId: 'YOUR_PROJECT_ID', // Replace with your WalletConnect Project ID
+  projectId: 'a527f3c8f7f9b8d2651475764197c36b',
   chains: [mainnet, polygon],
   ssr: true, 
 });

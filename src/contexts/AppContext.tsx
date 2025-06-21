@@ -37,7 +37,8 @@ export const AppContextProvider = ({ children }: { children: React.ReactNode }) 
     const [isActionInProgress, setIsActionInProgress] = useState(false);
     const [chain, setChain] = useState<Chain>('solana');
 
-    // When switching to an EVM chain, default to mainnet if currently on devnet
+    // When switching to an EVM chain, default to mainnet if currently on devnet,
+    // as our EVM features are mainnet-focused.
     useEffect(() => {
         if (chain !== 'solana' && networkMode === 'devnet') {
             setNetworkMode('mainnet-beta');
