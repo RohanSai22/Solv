@@ -28,27 +28,41 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CalendarClock, Loader2, Info, Trash2 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarClock, Loader2, Info, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { useContext, useEffect, useState } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
-import { getJupiterApiUrl } from "@/lib/jupiter-utils";
+import { format, addDays, addWeeks, addMonths } from "date-fns";
+import { cn } from "@/lib/utils";
 
 type DcaSchedule = {
   id: string;
   spendToken: string;
   buyToken: string;
   amount: string;
-  frequency: string;
+  frequency: "Daily" | "Weekly" | "Monthly";
+  startDate: Date;
 };
 
 const initialSchedules: DcaSchedule[] = [
-  { id: "1", spendToken: "USDC", buyToken: "SOL", amount: "100", frequency: "Weekly" },
-  { id: "2", spendToken: "SOL", buyToken: "JUP", amount: "5", frequency: "Monthly" },
+  { id: "1", spendToken: "USDC", buyToken: "SOL", amount: "100", frequency: "Weekly", startDate: new Date() },
+  { id: "2", spendToken: "SOL", buyToken: "JUP", amount: "5", frequency: "Monthly", startDate: new Date() },
 ];
 
+const getNextRun = (schedule: DcaSchedule) => {
+    const now = new Date();
+    let nextRun = schedule.startDate;
+    while (nextRun < now) {
+      if (schedule.frequency === 'Daily') nextRun = addDays(nextRun, 1);
+      else if (schedule.frequency === 'Weekly') nextRun = addWeeks(nextRun, 1);
+      else if (schedule.frequency === 'Monthly') nextRun = addMonths(nextRun, 1);
+    }
+    return format(nextRun, "PPP");
+}
 
 export function DcaWizard({ className }: { className?: string }) {
   const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
@@ -61,11 +75,12 @@ export function DcaWizard({ className }: { className?: string }) {
   const [spendToken, setSpendToken] = useState('');
   const [buyToken, setBuyToken] = useState('');
   const [amount, setAmount] = useState('');
-  const [frequency, setFrequency] = useState('');
+  const [frequency, setFrequency] = useState<'Daily' | 'Weekly' | 'Monthly' | ''>('');
+  const [startDate, setStartDate] = useState<Date | undefined>(new Date());
 
   const isMainnet = networkMode === 'mainnet-beta';
   const isFormDisabled = (isMainnet && !connected) || isActionInProgress;
-  const canCreate = spendToken && buyToken && amount && frequency;
+  const canCreate = spendToken && buyToken && amount && frequency && startDate;
 
   useEffect(() => {
     return () => {
@@ -86,6 +101,7 @@ export function DcaWizard({ className }: { className?: string }) {
         buyToken,
         amount,
         frequency,
+        startDate,
       };
       setSchedules(prev => [newSchedule, ...prev]);
       setIsActionInProgress(false);
@@ -95,10 +111,11 @@ export function DcaWizard({ className }: { className?: string }) {
       setBuyToken('');
       setAmount('');
       setFrequency('');
+      setStartDate(new Date());
       
       toast({
         title: "DCA Scheduled (Simulated)",
-        description: "Your new dollar-cost averaging schedule has been created.",
+        description: `Your new ${frequency.toLowerCase()} schedule to buy ${buyToken} has been created.`,
       });
     }, 1500);
   };
@@ -127,7 +144,7 @@ export function DcaWizard({ className }: { className?: string }) {
             DCA Wizard
           </CardTitle>
           <CardDescription>
-            Schedule and manage dollar-cost averaging strategies.
+            Schedule and manage dollar-cost averaging strategies. All actions are simulated.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
@@ -147,48 +164,78 @@ export function DcaWizard({ className }: { className?: string }) {
             <TabsContent value="create" className="mt-4">
               <form onSubmit={handleScheduleDca}>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="spend-token">Spend Token</Label>
-                    <Select value={spendToken} onValueChange={setSpendToken} disabled={isFormDisabled}>
-                      <SelectTrigger id="spend-token">
-                        <SelectValue placeholder="Select token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USDC">USDC</SelectItem>
-                        <SelectItem value="SOL">SOL</SelectItem>
-                        <SelectItem value="JUP">JUP</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="buy-token">Buy Token</Label>
-                    <Select value={buyToken} onValueChange={setBuyToken} disabled={isFormDisabled}>
-                      <SelectTrigger id="buy-token">
-                        <SelectValue placeholder="Select token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="SOL">SOL</SelectItem>
-                        <SelectItem value="JUP">JUP</SelectItem>
-                        <SelectItem value="BONK">BONK</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="spend-token">Spend Token</Label>
+                      <Select value={spendToken} onValueChange={setSpendToken} disabled={isFormDisabled}>
+                        <SelectTrigger id="spend-token">
+                          <SelectValue placeholder="Select token" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USDC">USDC</SelectItem>
+                          <SelectItem value="SOL">SOL</SelectItem>
+                          <SelectItem value="JUP">JUP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="buy-token">Buy Token</Label>
+                      <Select value={buyToken} onValueChange={setBuyToken} disabled={isFormDisabled}>
+                        <SelectTrigger id="buy-token">
+                          <SelectValue placeholder="Select token" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SOL">SOL</SelectItem>
+                          <SelectItem value="JUP">JUP</SelectItem>
+                          <SelectItem value="BONK">BONK</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="spend-amount">Amount to spend each time</Label>
                     <Input id="spend-amount" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g., 100" type="number" disabled={isFormDisabled} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="frequency">Frequency</Label>
-                    <Select value={frequency} onValueChange={setFrequency} disabled={isFormDisabled}>
-                      <SelectTrigger id="frequency">
-                        <SelectValue placeholder="Select frequency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Daily">Daily</SelectItem>
-                        <SelectItem value="Weekly">Weekly</SelectItem>
-                        <SelectItem value="Monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="frequency">Frequency</Label>
+                      <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled={isFormDisabled}>
+                        <SelectTrigger id="frequency">
+                          <SelectValue placeholder="Select frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Daily">Daily</SelectItem>
+                          <SelectItem value="Weekly">Weekly</SelectItem>
+                          <SelectItem value="Monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                       <Label htmlFor="start-date">Start Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !startDate && "text-muted-foreground"
+                              )}
+                              disabled={isFormDisabled}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={startDate}
+                              onSelect={setStartDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                    </div>
                   </div>
                 </div>
                 <Button className="w-full mt-6" disabled={isFormDisabled || !canCreate} type="submit">
@@ -205,6 +252,7 @@ export function DcaWizard({ className }: { className?: string }) {
                             <TableHead>Pair</TableHead>
                             <TableHead>Amount</TableHead>
                             <TableHead>Frequency</TableHead>
+                            <TableHead>Next Run</TableHead>
                             <TableHead className="text-right">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -214,6 +262,7 @@ export function DcaWizard({ className }: { className?: string }) {
                                 <TableCell className="font-medium">{schedule.spendToken}/{schedule.buyToken}</TableCell>
                                 <TableCell>{schedule.amount} {schedule.spendToken}</TableCell>
                                 <TableCell>{schedule.frequency}</TableCell>
+                                <TableCell>{getNextRun(schedule)}</TableCell>
                                 <TableCell className="text-right">
                                     <Button variant="ghost" size="icon" onClick={() => handleCancelSchedule(schedule.id)} disabled={isActionInProgress}>
                                         <Trash2 className="w-4 h-4 text-destructive" />
