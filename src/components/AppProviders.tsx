@@ -28,28 +28,11 @@ const wagmiConfig = getDefaultConfig({
   ssr: false, 
 });
 
-// Wrapper to prevent SSR issues with wagmi/indexedDB
-function ClientOnly({ children }: { children: React.ReactNode }) {
-    const [hasMounted, setHasMounted] = useState(false);
-    useEffect(() => {
-        setHasMounted(true);
-    }, []);
-
-    if (!hasMounted) {
-        return null;
-    }
-
-    return <>{children}</>;
-}
-
-
 function SolanaWalletProviders({ children }: { children: React.ReactNode }) {
     const { networkMode } = useContext(AppContext);
 
     const endpoint = useMemo(() => getRpcUrl(networkMode), [networkMode]);
 
-    // Rely on standard wallet discovery, removing the explicit Phantom adapter.
-    // This resolves the console warning.
     const wallets = useMemo(() => [], []);
 
     return (
@@ -64,8 +47,17 @@ function SolanaWalletProviders({ children }: { children: React.ReactNode }) {
 }
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
+    const [hasMounted, setHasMounted] = useState(false);
+    useEffect(() => {
+        setHasMounted(true);
+    }, []);
+
+    // This prevents the providers from rendering on the server, fixing the SSR issue.
+    if (!hasMounted) {
+        return null;
+    }
+
     return (
-      <ClientOnly>
         <WagmiProvider config={wagmiConfig}>
           <QueryClientProvider client={queryClient}>
             <RainbowKitProvider
@@ -84,6 +76,5 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             </RainbowKitProvider>
           </QueryClientProvider>
         </WagmiProvider>
-      </ClientOnly>
-    )
+    );
 }
