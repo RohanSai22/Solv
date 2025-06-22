@@ -5,7 +5,7 @@ export const config = {
   cluster: process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'devnet',
   rpc: {
     devnet: process.env.NEXT_PUBLIC_DEVNET_RPC_URL || 'https://api.devnet.solana.com',
-    'mainnet-beta': process.env.NEXT_PUBLIC_MAINNET_RPC_URL || 'https://rpc.ankr.com/solana',
+    'mainnet-beta': process.env.NEXT_PUBLIC_MAINNET_RPC_URL || 'https://try-rpc.mainnet.solana.blockdaemon.tech/',
   },
   jupiter: {
     devnet: process.env.NEXT_PUBLIC_JUPITER_API_URL_DEVNET || 'https://lite-api.jup.ag',
