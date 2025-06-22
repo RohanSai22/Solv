@@ -35,8 +35,8 @@ export default function Header() {
   const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress } = useContext(AppContext);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container relative flex h-16 items-center">
+    <header className="w-full border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between">
         {/* LOGO - Left */}
         <div className="flex items-center">
           <button onClick={() => setActiveView(null)} className="flex items-center gap-2">
@@ -48,7 +48,7 @@ export default function Header() {
         </div>
 
         {/* NAVIGATION - Center (Desktop) */}
-        <nav className="hidden md:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <nav className="hidden md:flex items-center gap-1">
           {navItems.map(item => (
             <Button
               key={item.view}
@@ -69,7 +69,7 @@ export default function Header() {
         </nav>
 
         {/* CONTROLS - Right */}
-        <div className="flex items-center justify-end space-x-2 md:space-x-4 ml-auto">
+        <div className="flex items-center justify-end space-x-2 md:space-x-4">
           <div className="hidden md:flex items-center space-x-2">
             <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
             <Switch
