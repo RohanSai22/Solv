@@ -27,7 +27,7 @@ export default function Home() {
   const ActiveComponent = activeView ? components[activeView] : null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow flex items-center justify-center p-4 sm:p-6 md:p-8">
         <AnimatePresence mode="wait">
