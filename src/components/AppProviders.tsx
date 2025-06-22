@@ -25,7 +25,7 @@ const wagmiConfig = getDefaultConfig({
   appName: 'Solv Wallet Health Hub',
   projectId: 'a527f3c8f7f9b8d2651475764197c36b',
   chains: [mainnet, polygon],
-  ssr: true, 
+  ssr: false, 
 });
 
 // Wrapper to prevent SSR issues with wagmi/indexedDB
