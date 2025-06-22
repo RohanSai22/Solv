@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useState, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
@@ -27,6 +28,20 @@ const wagmiConfig = getDefaultConfig({
   chains: [mainnet, polygon],
   ssr: true, 
 });
+
+// Wrapper to prevent SSR issues with wagmi/indexedDB
+function ClientOnly({ children }: { children: React.ReactNode }) {
+    const [hasMounted, setHasMounted] = useState(false);
+    useEffect(() => {
+        setHasMounted(true);
+    }, []);
+
+    if (!hasMounted) {
+        return null;
+    }
+
+    return <>{children}</>;
+}
 
 
 function SolanaWalletProviders({ children }: { children: React.ReactNode }) {
@@ -55,23 +70,25 @@ function SolanaWalletProviders({ children }: { children: React.ReactNode }) {
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
     return (
-      <WagmiProvider config={wagmiConfig}>
-        <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider
-             theme={darkTheme({
-              accentColor: 'hsl(var(--primary))',
-              accentColorForeground: 'hsl(var(--primary-foreground))',
-              borderRadius: 'medium',
-              fontStack: 'system',
-             })}
-          >
-            <AppContextProvider>
-                <SolanaWalletProviders>
-                    {children}
-                </SolanaWalletProviders>
-            </AppContextProvider>
-          </RainbowKitProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
+      <ClientOnly>
+        <WagmiProvider config={wagmiConfig}>
+          <QueryClientProvider client={queryClient}>
+            <RainbowKitProvider
+               theme={darkTheme({
+                accentColor: 'hsl(var(--primary))',
+                accentColorForeground: 'hsl(var(--primary-foreground))',
+                borderRadius: 'medium',
+                fontStack: 'system',
+               })}
+            >
+              <AppContextProvider>
+                  <SolanaWalletProviders>
+                      {children}
+                  </SolanaWalletProviders>
+              </AppContextProvider>
+            </RainbowKitProvider>
+          </QueryClientProvider>
+        </WagmiProvider>
+      </ClientOnly>
     )
 }
