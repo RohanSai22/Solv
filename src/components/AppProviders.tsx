@@ -4,7 +4,6 @@
 import React, { useContext, useMemo, useState, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { AppContext, AppContextProvider } from '@/contexts/AppContext';
 import { getRpcUrl } from '@/config';
 import {
@@ -49,13 +48,9 @@ function SolanaWalletProviders({ children }: { children: React.ReactNode }) {
 
     const endpoint = useMemo(() => getRpcUrl(networkMode), [networkMode]);
 
-    const wallets = useMemo(
-        () => [
-            new PhantomWalletAdapter(),
-        ],
-        // Wallets are re-initialized when the network changes to clear any stale connections
-        [networkMode]
-    );
+    // Rely on standard wallet discovery, removing the explicit Phantom adapter.
+    // This resolves the console warning.
+    const wallets = useMemo(() => [], []);
 
     return (
         <ConnectionProvider endpoint={endpoint}>
