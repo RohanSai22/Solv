@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useContext } from 'react';
@@ -23,38 +24,25 @@ const navItems: { view: AppView; label: string }[] = [
   { view: 'pro-trader', label: 'Pro Trader' },
 ];
 
-const chainLabels: Record<Chain, string> = {
-  solana: "Solana",
-  ethereum: "Ethereum",
-  polygon: "Polygon",
-};
-
 function WalletConnectButton() {
   const { chain } = useContext(AppContext);
 
-  if (chain === 'solana') {
-    return <WalletMultiButton />;
-  }
-  
-  return <ConnectButton />;
+  // For this simplified version, we only show Solana wallet button
+  // since EVM features are not fully implemented.
+  return <WalletMultiButton />;
 }
 
 function MobileWalletConnectButton() {
-    const { chain } = useContext(AppContext);
-
-  if (chain === 'solana') {
-    return <WalletMultiButton className="w-full" />;
-  }
-
-  return <div className="w-full"><ConnectButton /></div>;
+  // Matching the desktop logic.
+  return <WalletMultiButton className="w-full" />;
 }
 
 
 export default function Header() {
-  const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress, chain, setChain } = useContext(AppContext);
+  const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress, chain } = useContext(AppContext);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <div className="mr-auto flex items-center">
           <button onClick={() => setActiveView(null)} className="flex items-center gap-2">
@@ -69,7 +57,7 @@ export default function Header() {
           {navItems.map(item => (
             <Button 
               key={item.view}
-              variant={activeView === item.view ? 'default': 'ghost'}
+              variant={activeView === item.view ? 'secondary': 'ghost'}
               size="sm"
               onClick={() => setActiveView(item.view)}
               className="relative"
@@ -85,28 +73,12 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center justify-end space-x-2 md:space-x-4">
-          {activeView === 'dust-sweeper' && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="hidden md:flex">
-                  {chainLabels[chain]}
-                  <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
+        <div className="flex items-center justify-end space-x-2 md:space-x-4 ml-auto">
           <div className="hidden md:flex items-center space-x-2">
             <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
             <Switch 
               id="network-mode-desktop"
-              disabled={isActionInProgress || chain !== 'solana'}
+              disabled={isActionInProgress}
               checked={networkMode === 'mainnet-beta'}
               onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
             />
@@ -125,9 +97,9 @@ export default function Header() {
                   <span className="sr-only">Open menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-full max-w-xs p-0">
+              <SheetContent side="right" className="w-full max-w-xs p-0 bg-background/95 backdrop-blur">
                 <div className="flex flex-col h-full">
-                  <div className="p-4 border-b">
+                  <div className="p-4 border-b border-white/10">
                     <SheetClose asChild>
                       <button onClick={() => setActiveView(null)} className="flex items-center gap-2">
                         <Icons.logo className="h-8 w-8 text-primary" />
@@ -150,28 +122,12 @@ export default function Header() {
                       </SheetClose>
                     ))}
                   </nav>
-                  <div className="p-4 border-t space-y-4">
-                     {activeView === 'dust-sweeper' && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full">
-                              {chainLabels[chain]}
-                              <ChevronDown className="ml-2 h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-[calc(100vw-2rem)]">
-                            <DropdownMenuItem onSelect={() => setChain('solana')}>Solana</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setChain('ethereum')}>Ethereum</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setChain('polygon')}>Polygon</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-
+                  <div className="p-4 border-t border-white/10 space-y-4">
                     <div className="flex items-center justify-center space-x-2">
                       <Label htmlFor="network-mode-mobile" className="text-sm text-muted-foreground">Testnet</Label>
                       <Switch 
                         id="network-mode-mobile"
-                        disabled={isActionInProgress || chain !== 'solana'}
+                        disabled={isActionInProgress}
                         checked={networkMode === 'mainnet-beta'}
                         onCheckedChange={(checked) => setNetworkMode(checked ? 'mainnet-beta' : 'devnet')}
                       />
