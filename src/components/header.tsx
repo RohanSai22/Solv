@@ -36,7 +36,7 @@ export default function Header() {
 
   return (
     <header className="w-full border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* LOGO - Left */}
         <div className="flex items-center">
           <button onClick={() => setActiveView(null)} className="flex items-center gap-2">
