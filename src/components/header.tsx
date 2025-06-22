@@ -7,12 +7,11 @@ import { Icons } from "@/components/icons";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { AppContext, type AppView, type Chain } from '@/contexts/AppContext';
+import { AppContext, type AppView } from '@/contexts/AppContext';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { motion } from 'framer-motion';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
-import { Menu, ChevronDown } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Menu } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 const navItems: { view: AppView; label: string }[] = [
@@ -25,26 +24,21 @@ const navItems: { view: AppView; label: string }[] = [
 ];
 
 function WalletConnectButton() {
-  const { chain } = useContext(AppContext);
-
-  // For this simplified version, we only show Solana wallet button
-  // since EVM features are not fully implemented.
   return <WalletMultiButton />;
 }
 
 function MobileWalletConnectButton() {
-  // Matching the desktop logic.
   return <WalletMultiButton className="w-full" />;
 }
 
-
 export default function Header() {
-  const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress, chain } = useContext(AppContext);
+  const { networkMode, setNetworkMode, activeView, setActiveView, isActionInProgress } = useContext(AppContext);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
-        <div className="mr-auto flex items-center">
+      <div className="container relative flex h-16 items-center">
+        {/* LOGO - Left */}
+        <div className="flex items-center">
           <button onClick={() => setActiveView(null)} className="flex items-center gap-2">
             <Icons.logo className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold font-headline tracking-tighter">
@@ -52,10 +46,11 @@ export default function Header() {
             </h1>
           </button>
         </div>
-        
-        <nav className="hidden md:flex items-center space-x-2 lg:space-x-4 mx-4">
+
+        {/* NAVIGATION - Center (Desktop) */}
+        <nav className="hidden md:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           {navItems.map(item => (
-            <Button 
+            <Button
               key={item.view}
               variant={activeView === item.view ? 'secondary': 'ghost'}
               size="sm"
@@ -64,7 +59,7 @@ export default function Header() {
             >
               {item.label}
               {activeView === item.view && (
-                <motion.div 
+                <motion.div
                   className="absolute -bottom-2.5 left-0 right-0 h-0.5 bg-primary"
                   layoutId="underline"
                 />
@@ -73,10 +68,11 @@ export default function Header() {
           ))}
         </nav>
 
+        {/* CONTROLS - Right */}
         <div className="flex items-center justify-end space-x-2 md:space-x-4 ml-auto">
           <div className="hidden md:flex items-center space-x-2">
             <Label htmlFor="network-mode-desktop" className="text-xs sm:text-sm text-muted-foreground">Testnet</Label>
-            <Switch 
+            <Switch
               id="network-mode-desktop"
               disabled={isActionInProgress}
               checked={networkMode === 'mainnet-beta'}
@@ -89,6 +85,7 @@ export default function Header() {
              <WalletConnectButton />
           </div>
 
+          {/* Mobile Menu */}
           <div className="md:hidden">
             <Sheet>
               <SheetTrigger asChild>
@@ -125,7 +122,7 @@ export default function Header() {
                   <div className="p-4 border-t border-white/10 space-y-4">
                     <div className="flex items-center justify-center space-x-2">
                       <Label htmlFor="network-mode-mobile" className="text-sm text-muted-foreground">Testnet</Label>
-                      <Switch 
+                      <Switch
                         id="network-mode-mobile"
                         disabled={isActionInProgress}
                         checked={networkMode === 'mainnet-beta'}
