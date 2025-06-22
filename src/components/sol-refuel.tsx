@@ -32,13 +32,21 @@ import { getExplorerUrl } from "@/lib/solana-utils";
 const LOW_SOL_THRESHOLD = 0.05 * LAMPORTS_PER_SOL; // 0.05 SOL
 
 const REFUEL_OPTIONS = [
-  { value: '1000000', label: '1 USDC', inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', approxSOL: '~0.007 SOL' },
-  { value: '2000000', label: '2 USDC', inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', approxSOL: '~0.014 SOL' },
-  { value: '5000000', label: '5 JUP', inputMint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', approxSOL: '~0.035 SOL' }
+  { value: '1000000', label: '1 USDC', inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', approxSOL: 0.007, cost: 1 },
+  { value: '2000000', label: '2 USDC', inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', approxSOL: 0.014, cost: 2 },
+  { value: '5000000', label: '5 USDC', inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', approxSOL: 0.035, cost: 5 }
 ];
 
 export function SolRefuel({ className }: { className?: string }) {
-  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
+  const { 
+    networkMode, 
+    isActionInProgress, 
+    setIsActionInProgress,
+    devnetSolBalance,
+    setDevnetSolBalance,
+    devnetUsdcBalance,
+    setDevnetUsdcBalance
+  } = useContext(AppContext);
   const { connection } = useConnection();
   const wallet = useWallet();
   const { connected, publicKey } = wallet;
@@ -48,15 +56,16 @@ export function SolRefuel({ className }: { className?: string }) {
   const [isFetchingBalance, setIsFetchingBalance] = useState(false);
   const [selectedRefuelOption, setSelectedRefuelOption] = useState(REFUEL_OPTIONS[1].value);
 
-  // State for a more realistic devnet simulation
-  const [devnetSolBalance, setDevnetSolBalance] = useState(0.01 * LAMPORTS_PER_SOL);
-
   const isMainnet = networkMode === 'mainnet-beta';
+
+  const selectedOption = useMemo(() => REFUEL_OPTIONS.find(o => o.value === selectedRefuelOption)!, [selectedRefuelOption]);
+
   const needsRefuel = useMemo(() => {
     if (!isMainnet) return true; // Always allow refueling on devnet for testing
     return solBalance !== null && solBalance < LOW_SOL_THRESHOLD;
   }, [solBalance, isMainnet]);
-  const isActionDisabled = (isMainnet && !connected) || !needsRefuel || isActionInProgress;
+  
+  const isActionDisabled = (isMainnet && !connected) || !needsRefuel || isActionInProgress || (!isMainnet && selectedOption.cost > devnetUsdcBalance);
 
 
   const fetchSolBalance = useCallback(async () => {
@@ -89,37 +98,36 @@ export function SolRefuel({ className }: { className?: string }) {
   }, [setIsActionInProgress]);
 
   const handleRefuel = async () => {
-    if (isActionDisabled || (isMainnet && !publicKey)) return;
+    if (isActionDisabled) return;
 
     setIsActionInProgress(true);
-
-    const option = REFUEL_OPTIONS.find(o => o.value === selectedRefuelOption);
-    if (!option) {
-      toast({ title: "Invalid selection", variant: "destructive" });
-      setIsActionInProgress(false);
-      return;
-    }
 
     if (!isMainnet) {
       // Devnet simulation
       setTimeout(() => {
         setIsActionInProgress(false);
-        setDevnetSolBalance(prev => prev + (0.02 * LAMPORTS_PER_SOL));
+        setDevnetSolBalance(prev => prev + (selectedOption.approxSOL * LAMPORTS_PER_SOL));
+        setDevnetUsdcBalance(prev => prev - selectedOption.cost);
         toast({
           title: "Refuel Successful! (Testnet)",
-          description: "Your SOL balance has been topped up.",
+          description: `Your SOL balance has been topped up by ~${selectedOption.approxSOL.toFixed(3)} SOL.`,
         });
-      }, 2000);
+      }, 1500);
       return;
     }
 
     // Mainnet Logic
+    if (!publicKey) {
+       toast({ title: "Wallet not connected", variant: "destructive" });
+       setIsActionInProgress(false);
+       return;
+    }
     try {
         const tx = await getSwapTransaction({
-            inputMint: option.inputMint,
+            inputMint: selectedOption.inputMint,
             outputMint: 'So11111111111111111111111111111111111111112', // Native SOL
-            amount: option.value,
-            userPublicKey: publicKey!.toBase58(),
+            amount: selectedOption.value,
+            userPublicKey: publicKey.toBase58(),
             networkMode: 'mainnet-beta'
         });
 
@@ -128,7 +136,7 @@ export function SolRefuel({ className }: { className?: string }) {
 
         toast({
             title: "Refuel Successful!",
-            description: `Swapped ${option.label} for SOL.`,
+            description: `Swapped ${selectedOption.label} for SOL.`,
             action: (
               <a href={getExplorerUrl(signature, networkMode)} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm">View Tx</Button>
@@ -152,12 +160,13 @@ export function SolRefuel({ className }: { className?: string }) {
   };
 
   const displayBalance = useMemo(() => {
-    if (isFetchingBalance) return <Skeleton className="h-8 w-32" />;
-    if (solBalance === null) return "N/A";
-    return `${(solBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL`;
-  }, [solBalance, isFetchingBalance]);
-  
-  const devnetDisplayBalance = `${(devnetSolBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL`;
+    if (isMainnet) {
+        if (isFetchingBalance) return <Skeleton className="h-8 w-32" />;
+        if (solBalance === null) return "N/A";
+        return `${(solBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL`;
+    }
+    return `${(devnetSolBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL`;
+  }, [solBalance, isFetchingBalance, isMainnet, devnetSolBalance]);
 
   return (
     <motion.div
@@ -174,7 +183,8 @@ export function SolRefuel({ className }: { className?: string }) {
             SOL Refuel
           </CardTitle>
           <CardDescription>
-            Running low? Swap other tokens for SOL to pay for gas fees.
+            Running low? Swap other tokens for SOL to pay for gas fees. 
+            {!isMainnet && `(Testnet USDC Balance: $${devnetUsdcBalance.toFixed(2)})`}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
@@ -186,24 +196,27 @@ export function SolRefuel({ className }: { className?: string }) {
           <div className="p-4 rounded-lg bg-secondary/50 text-center">
               <p className="text-sm text-muted-foreground">Your SOL Balance</p>
               <div className="text-2xl font-bold font-mono h-8 flex items-center justify-center">
-                 {isMainnet ? displayBalance : devnetDisplayBalance}
+                 {displayBalance}
               </div>
           </div>
 
           {!isFetchingBalance && isMainnet && !needsRefuel && connected && (
             <div className="text-center text-emerald-500 font-medium">Your SOL balance looks healthy!</div>
           )}
+          {!isMainnet && selectedOption.cost > devnetUsdcBalance && (
+            <div className="text-center text-destructive font-medium">Insufficient USDC for this option.</div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="refuel-amount">Refuel Amount</Label>
-            <Select value={selectedRefuelOption} onValueChange={setSelectedRefuelOption} disabled={isActionDisabled}>
+            <Select value={selectedRefuelOption} onValueChange={setSelectedRefuelOption} disabled={isActionInProgress}>
               <SelectTrigger id="refuel-amount">
                 <SelectValue placeholder="Select amount to spend" />
               </SelectTrigger>
               <SelectContent>
                 {REFUEL_OPTIONS.map(option => (
                   <SelectItem key={option.value} value={option.value}>
-                    Pay with {option.label} (get {option.approxSOL})
+                    Pay with {option.label} (get ~{option.approxSOL.toFixed(3)} SOL)
                   </SelectItem>
                 ))}
               </SelectContent>

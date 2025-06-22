@@ -67,12 +67,19 @@ const Countdown = ({ to }: { to: Date }) => {
 };
 
 export function DcaWizard({ className }: { className?: string }) {
-  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
+  const { 
+    networkMode, 
+    isActionInProgress, 
+    setIsActionInProgress,
+    dcaSchedules,
+    setDcaSchedules,
+    devnetUsdcBalance,
+    setDevnetUsdcBalance,
+  } = useContext(AppContext);
   const wallet = useWallet();
   const { connected, publicKey, signTransaction } = wallet;
   const { toast } = useToast();
   
-  const [schedules, setSchedules] = useState<RecurringOrder[]>([]);
   const [isFetchingSchedules, setIsFetchingSchedules] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
@@ -89,40 +96,44 @@ export function DcaWizard({ className }: { className?: string }) {
   const isFormDisabled = (isMainnet && !connected) || isCreating || isCancelling !== null || isActionInProgress;
 
   const validationError = useMemo(() => {
-    if (spendToken === USDC_MINT && parseFloat(amount) < 50) {
+    if (spendToken === USDC_MINT && parseFloat(amount) < 50 && isMainnet) {
       return 'Minimum amount for USDC is $50.';
+    }
+     if (!isMainnet && parseFloat(amount) > devnetUsdcBalance) {
+      return `Insufficient USDC balance. You only have ${devnetUsdcBalance.toFixed(2)} USDC.`;
     }
     if (parseInt(occurrences, 10) < 2) {
       return 'Minimum number of payments is 2.';
     }
     return null;
-  }, [spendToken, amount, occurrences]);
+  }, [spendToken, amount, occurrences, isMainnet, devnetUsdcBalance]);
 
   const canCreate = !validationError;
 
   const fetchSchedules = useCallback(async () => {
-    if (!isMainnet || !connected || !publicKey) {
-      setSchedules([]); // On Devnet, start with an empty list
+    if (!isMainnet) {
+      return; // On Devnet, state is managed by context
+    }
+    if (!connected || !publicKey) {
+      setDcaSchedules([]); 
       return;
     }
     setIsFetchingSchedules(true);
     try {
       const fetchedSchedules = await getRecurringOrders(publicKey, networkMode);
-      setSchedules(fetchedSchedules);
+      setDcaSchedules(fetchedSchedules);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Failed to fetch schedules', description: (error as Error).message });
     } finally {
       setIsFetchingSchedules(false);
     }
-  }, [isMainnet, connected, publicKey, networkMode, toast]);
+  }, [isMainnet, connected, publicKey, networkMode, toast, setDcaSchedules]);
 
   useEffect(() => {
     if (isMainnet && connected) {
       fetchSchedules();
       const interval = setInterval(fetchSchedules, 15000); // Poll every 15 seconds
       return () => clearInterval(interval);
-    } else {
-      setSchedules([]);
     }
   }, [isMainnet, connected, fetchSchedules]);
 
@@ -133,7 +144,7 @@ export function DcaWizard({ className }: { className?: string }) {
     setIsCreating(true);
     setIsActionInProgress(true);
 
-    if (!isMainnet || !publicKey || !signTransaction) {
+    if (!isMainnet) {
       // Devnet Simulation
       const newSchedule: RecurringOrder = {
         id: new Date().toISOString(),
@@ -147,14 +158,21 @@ export function DcaWizard({ className }: { className?: string }) {
         lastExecution: null,
         params: { type: 'time', interval: frequency, intervalValue: 1, startDate: Math.floor(startDate!.getTime() / 1000), maxNumberOfExecutions: parseInt(occurrences) }
       };
-      setSchedules(prev => [newSchedule, ...prev]);
-      toast({ title: 'DCA Scheduled (Simulated)', description: 'Your new recurring buy has been added.' });
+      setDevnetUsdcBalance(prev => prev - parseFloat(amount));
+      setDcaSchedules(prev => [newSchedule, ...prev]);
+      toast({ title: 'DCA Scheduled (Testnet)', description: `Your new recurring buy has been added and ${amount} USDC deducted.` });
       setIsCreating(false);
       setIsActionInProgress(false);
       return;
     }
 
     // Mainnet Logic
+    if (!publicKey || !signTransaction) {
+        toast({ variant: 'destructive', title: 'Wallet Not Connected' });
+        setIsCreating(false);
+        setIsActionInProgress(false);
+        return;
+    }
     try {
       const inAmountLamports = (parseFloat(amount) * Math.pow(10, USDC_DECIMALS)).toString();
       const dcaParams: RecurringOrderParams = {
@@ -195,16 +213,22 @@ export function DcaWizard({ className }: { className?: string }) {
     setIsCancelling(requestId);
     setIsActionInProgress(true);
 
-    if (!isMainnet || !publicKey) {
+    if (!isMainnet) {
       // Devnet Simulation
-      setSchedules(prev => prev.filter(s => s.id !== requestId));
-      toast({ title: 'Schedule Cancelled (Simulated)', variant: 'destructive' });
+      setDcaSchedules(prev => prev.filter(s => s.id !== requestId));
+      toast({ title: 'Schedule Cancelled (Testnet)', variant: 'destructive' });
       setIsCancelling(null);
       setIsActionInProgress(false);
       return;
     }
 
     // Mainnet Logic
+    if (!publicKey) {
+        toast({ variant: 'destructive', title: 'Wallet Not Connected' });
+        setIsCancelling(null);
+        setIsActionInProgress(false);
+        return;
+    }
     try {
       await cancelRecurringOrder({ requestId, user: publicKey, networkMode });
       toast({ title: 'Schedule Cancelled', description: 'Your recurring buy has been cancelled on-chain.' });
@@ -232,7 +256,8 @@ export function DcaWizard({ className }: { className?: string }) {
             DCA Wizard
           </CardTitle>
           <CardDescription>
-            Schedule and manage dollar-cost averaging strategies.
+            Schedule and manage dollar-cost averaging strategies. 
+            {!isMainnet && ` (Testnet USDC Balance: $${devnetUsdcBalance.toFixed(2)})`}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-4">
@@ -327,7 +352,7 @@ export function DcaWizard({ className }: { className?: string }) {
               </form>
             </TabsContent>
             <TabsContent value="manage" className="mt-4">
-               {isFetchingSchedules ? <Skeleton className="h-24 w-full" /> : schedules.length > 0 ? (
+               {isFetchingSchedules && isMainnet ? <Skeleton className="h-24 w-full" /> : dcaSchedules.length > 0 ? (
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -339,7 +364,7 @@ export function DcaWizard({ className }: { className?: string }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {schedules.map((schedule) => (
+                        {dcaSchedules.map((schedule) => (
                             <TableRow key={schedule.id}>
                                 <TableCell className="font-medium">
                                     {schedule.inputMint === USDC_MINT ? "USDC" : "???"} / {schedule.outputMint === SOL_MINT ? "SOL" : "JUP"}
@@ -362,7 +387,7 @@ export function DcaWizard({ className }: { className?: string }) {
                 </Table>
                ) : (
                 <div className="text-center text-muted-foreground py-8">
-                    {!connected ? "Connect your wallet to manage schedules." : "You have no active DCA schedules."}
+                    {isMainnet && !connected ? "Connect your wallet to manage schedules." : "You have no active DCA schedules."}
                 </div>
                )}
             </TabsContent>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -53,21 +54,18 @@ const MINT_DECIMALS: Record<string, number> = {
   [JUP_MINT]: 6
 };
 
-// Initial mock data for Devnet
-const initialOrders: TriggerOrder[] = [
-  { id: "1", status: "OPEN", makingAmount: "1000000000", takingAmount: "145500000", inputMint: SOL_MINT, outputMint: USDC_MINT, maker: "simulated-user" },
-  { id: "2", status: "OPEN", makingAmount: "500000000", takingAmount: "625000000", inputMint: JUP_MINT, outputMint: USDC_MINT, maker: "simulated-user" },
-  { id: "3", status: "COMPLETED", makingAmount: "100000000", takingAmount: "2800", inputMint: "BONK-MINT", outputMint: SOL_MINT, maker: "simulated-user" },
-];
-
-
 export function LimitOrder({ className }: { className?: string }) {
-  const { networkMode, isActionInProgress, setIsActionInProgress } = useContext(AppContext);
+  const { 
+    networkMode, 
+    isActionInProgress, 
+    setIsActionInProgress,
+    limitOrders,
+    setLimitOrders,
+  } = useContext(AppContext);
   const wallet = useWallet();
   const { connected, publicKey, signTransaction } = wallet;
   const { toast } = useToast();
 
-  const [orders, setOrders] = useState<TriggerOrder[]>(initialOrders);
   const [isFetching, setIsFetching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
@@ -82,28 +80,27 @@ export function LimitOrder({ className }: { className?: string }) {
   const isFormDisabled = (isMainnet && !connected) || isCreating || !!isCancelling;
 
   const fetchOrders = useCallback(async () => {
-    if (!isMainnet || !connected || !publicKey) {
-      setOrders(initialOrders);
+    if (!isMainnet) return; // Testnet is handled by context
+    if (!connected || !publicKey) {
+      setLimitOrders([]);
       return;
     }
     setIsFetching(true);
     try {
       const fetchedOrders = await getTriggerOrders(publicKey, networkMode);
-      setOrders(fetchedOrders);
+      setLimitOrders(fetchedOrders);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Failed to fetch orders', description: (error as Error).message });
     } finally {
       setIsFetching(false);
     }
-  }, [isMainnet, connected, publicKey, networkMode, toast]);
+  }, [isMainnet, connected, publicKey, networkMode, toast, setLimitOrders]);
 
   useEffect(() => {
     if (isMainnet && connected) {
       fetchOrders();
       const interval = setInterval(fetchOrders, 15000);
       return () => clearInterval(interval);
-    } else {
-      setOrders(initialOrders);
     }
   }, [isMainnet, connected, fetchOrders]);
 
@@ -118,7 +115,7 @@ export function LimitOrder({ className }: { className?: string }) {
     const makingAmountLamports = (parseFloat(makingAmount) * Math.pow(10, MINT_DECIMALS[inputMint])).toString();
     const takingAmountLamports = (parseFloat(takingAmount) * Math.pow(10, MINT_DECIMALS[outputMint])).toString();
 
-    if (!isMainnet || !publicKey || !signTransaction) {
+    if (!isMainnet) {
       // Devnet Simulation
       const newOrder: TriggerOrder = {
         id: new Date().toISOString(),
@@ -129,14 +126,20 @@ export function LimitOrder({ className }: { className?: string }) {
         takingAmount: takingAmountLamports,
         status: 'OPEN',
       };
-      setOrders(prev => [newOrder, ...prev]);
-      toast({ title: 'Order Created (Simulated)', description: 'Your new limit order has been placed.' });
+      setLimitOrders(prev => [newOrder, ...prev]);
+      toast({ title: 'Order Created (Testnet)', description: 'Your new limit order has been saved for this session.' });
       setIsCreating(false);
       setIsActionInProgress(false);
       return;
     }
 
     // Mainnet Logic
+    if (!publicKey || !signTransaction) {
+      toast({ variant: 'destructive', title: 'Wallet Not Connected' });
+      setIsCreating(false);
+      setIsActionInProgress(false);
+      return;
+    }
     try {
       const orderParams: TriggerOrderParams = {
         maker: publicKey,
@@ -168,16 +171,22 @@ export function LimitOrder({ className }: { className?: string }) {
     setIsCancelling(order.id);
     setIsActionInProgress(true);
 
-    if (!isMainnet || !publicKey || !signTransaction) {
+    if (!isMainnet) {
       // Devnet Simulation
-      setOrders(prev => prev.filter(o => o.id !== order.id));
-      toast({ title: 'Order Cancelled (Simulated)', variant: 'destructive' });
+      setLimitOrders(prev => prev.filter(o => o.id !== order.id));
+      toast({ title: 'Order Cancelled (Testnet)', variant: 'destructive' });
       setIsCancelling(null);
       setIsActionInProgress(false);
       return;
     }
 
     // Mainnet Logic
+    if (!publicKey || !signTransaction) {
+        toast({ variant: 'destructive', title: 'Wallet Not Connected' });
+        setIsCancelling(null);
+        setIsActionInProgress(false);
+        return;
+    }
     try {
       const { transaction: txBase64, requestId } = await cancelTriggerOrder({ orderId: order.id, maker: publicKey }, networkMode);
       const transaction = VersionedTransaction.deserialize(Buffer.from(txBase64, 'base64'));
@@ -270,7 +279,7 @@ export function LimitOrder({ className }: { className?: string }) {
               </form>
             </TabsContent>
             <TabsContent value="manage" className="mt-4">
-              {isFetching ? <Skeleton className="h-40 w-full" /> : orders.length > 0 ? (
+              {isFetching && isMainnet ? <Skeleton className="h-40 w-full" /> : limitOrders.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -283,7 +292,7 @@ export function LimitOrder({ className }: { className?: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orders.map((order) => {
+                    {limitOrders.map((order) => {
                       const makingDecimals = MINT_DECIMALS[order.inputMint] ?? 6;
                       const takingDecimals = MINT_DECIMALS[order.outputMint] ?? 6;
                       const makingAmountUi = parseFloat(order.makingAmount) / Math.pow(10, makingDecimals);
@@ -314,7 +323,7 @@ export function LimitOrder({ className }: { className?: string }) {
                 </Table>
               ) : (
                 <div className="text-center text-muted-foreground py-8">
-                  {!connected ? "Connect your wallet to manage orders." : "You have no limit orders."}
+                  {!isMainnet ? "Create a simulated order to see it here." : !connected ? "Connect your wallet to manage orders." : "You have no limit orders."}
                 </div>
               )}
             </TabsContent>
